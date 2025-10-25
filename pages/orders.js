@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Search, Download, Eye, Filter } from 'lucide-react';
+import { Search, Download, Filter } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { downloadReceipt } from '../lib/pdfGenerator';
@@ -49,7 +49,8 @@ export default function Orders() {
     }
   };
 
-  const handleDownloadReceipt = (order) => {
+  const handleDownloadReceipt = (order, e) => {
+    e.stopPropagation(); // Prevent row click navigation
     downloadReceipt(order, order.customerId, 'invoice');
   };
 
@@ -136,7 +137,11 @@ export default function Orders() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredOrders.map((order) => (
-                    <tr key={order._id} className="hover:bg-gray-50">
+                    <tr 
+                      key={order._id} 
+                      onClick={() => router.push(`/customers/${order.customerId._id}`)}
+                      className="hover:bg-gray-50 cursor-pointer"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
                       </td>
@@ -169,16 +174,9 @@ export default function Orders() {
                           {order.status.toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
-                          onClick={() => router.push(`/customers/${order.customerId._id}`)}
-                          className="text-bge-green hover:text-bge-light-green"
-                          title="View Customer"
-                        >
-                          <Eye className="w-5 h-5 inline" />
-                        </button>
-                        <button
-                          onClick={() => handleDownloadReceipt(order)}
+                          onClick={(e) => handleDownloadReceipt(order, e)}
                           className="text-blue-600 hover:text-blue-800"
                           title="Download Receipt"
                         >
