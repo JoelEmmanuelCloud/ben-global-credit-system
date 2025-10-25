@@ -117,7 +117,7 @@ export default function Dashboard() {
                 formatter={(value) => `₦${value.toLocaleString()}`}
               />
               <Legend />
-              <Bar dataKey="debt" fill="#1a7a52" name="Credit Issued" />
+              <Bar dataKey="debt" fill="#dc2626" name="Credit Issued" />
               <Bar dataKey="paid" fill="#22c55e" name="Amount Paid" />
             </BarChart>
           </ResponsiveContainer>
