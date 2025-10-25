@@ -1,6 +1,6 @@
-import dbConnect from '../../../../lib/mongodb';
-import Order from '../../../../models/Order';
-import Customer from '../../../../models/Customer';
+import dbConnect from '../../lib/mongodb';
+import Order from '../../models/Order';
+import Customer from '../../models/Customer';
 
 export default async function handler(req, res) {
   const { id } = req.query;
