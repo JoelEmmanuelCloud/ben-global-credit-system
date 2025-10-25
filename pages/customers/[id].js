@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { ArrowLeft, Plus, Download, DollarSign } from 'lucide-react';
 import Head from 'next/head';
+import { downloadReceipt } from '../../lib/pdfGenerator';
 
 export default function CustomerDetail() {
   const router = useRouter();
@@ -120,6 +121,11 @@ export default function CustomerDetail() {
     }
   };
 
+  // FIXED: Added the handleDownloadReceipt function
+  const handleDownloadReceipt = (order) => {
+    downloadReceipt(order, customer, 'invoice');
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -211,31 +217,38 @@ export default function CustomerDetail() {
                   </div>
 
                   {/* Products */}
-                  <div className="mb-3">
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Products:</p>
-                    <div className="space-y-1">
-                      {order.products.map((product, idx) => (
-                        <div key={idx} className="text-sm text-gray-600 flex justify-between">
-                          <span>{product.name} x {product.quantity}</span>
-                          <span>₦{product.totalPrice.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="space-y-2 mb-3">
+                    {order.products.map((product, idx) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-gray-700">
+                          {product.name} (x{product.quantity})
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          ₦{product.totalPrice.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
                   </div>
 
-                  {/* Payment Summary */}
+                  {/* Totals */}
                   <div className="border-t pt-3 space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Total Amount:</span>
-                      <span className="font-semibold">₦{order.totalAmount.toLocaleString()}</span>
+                      <span className="font-semibold text-gray-900">
+                        ₦{order.totalAmount.toLocaleString()}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Amount Paid:</span>
-                      <span className="font-semibold text-green-600">₦{order.amountPaid.toLocaleString()}</span>
+                      <span className="font-semibold text-green-600">
+                        ₦{order.amountPaid.toLocaleString()}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Balance:</span>
-                      <span className="font-semibold text-red-600">₦{order.balance.toLocaleString()}</span>
+                      <span className="font-semibold text-gray-700">Balance:</span>
+                      <span className="font-bold text-red-600">
+                        ₦{order.balance.toLocaleString()}
+                      </span>
                     </div>
                   </div>
 
@@ -269,7 +282,7 @@ export default function CustomerDetail() {
                       </button>
                     )}
                     <button
-                      onClick={() => alert('Receipt download coming soon!')}
+                      onClick={() => handleDownloadReceipt(order)}
                       className="btn-secondary text-sm flex items-center"
                     >
                       <Download className="w-4 h-4 mr-1" />
