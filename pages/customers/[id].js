@@ -1,9 +1,9 @@
+//pages/customers/[id].js
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { ArrowLeft, Plus, Download, DollarSign } from 'lucide-react';
 import Head from 'next/head';
-import { downloadReceipt } from '../../lib/pdfGenerator';
 
 export default function CustomerDetail() {
   const router = useRouter();
@@ -118,10 +118,6 @@ export default function CustomerDetail() {
       console.error('Error making payment:', error);
       alert('Error processing payment');
     }
-  };
-
-  const handleDownloadReceipt = (order) => {
-    downloadReceipt(order, customer, 'invoice');
   };
 
   if (loading) {
@@ -273,7 +269,7 @@ export default function CustomerDetail() {
                       </button>
                     )}
                     <button
-                      onClick={() => handleDownloadReceipt(order)}
+                      onClick={() => alert('Receipt download coming soon!')}
                       className="btn-secondary text-sm flex items-center"
                     >
                       <Download className="w-4 h-4 mr-1" />

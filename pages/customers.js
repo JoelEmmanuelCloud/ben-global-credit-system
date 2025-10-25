@@ -1,7 +1,7 @@
 //page/customers.js
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -72,7 +72,8 @@ export default function Customers() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, e) => {
+    e.stopPropagation(); // Prevent row click navigation
     if (confirm('Are you sure you want to delete this customer? All their orders will also be deleted.')) {
       try {
         const res = await fetch(`/api/customers/${id}`, {
@@ -143,7 +144,11 @@ export default function Customers() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredCustomers.map((customer) => (
-                    <tr key={customer._id} className="hover:bg-gray-50">
+                    <tr 
+                      key={customer._id} 
+                      onClick={() => router.push(`/customers/${customer._id}`)}
+                      className="hover:bg-gray-50 cursor-pointer"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{customer.name}</div>
                       </td>
@@ -160,13 +165,7 @@ export default function Customers() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
-                          onClick={() => router.push(`/customers/${customer._id}`)}
-                          className="text-bge-green hover:text-bge-light-green mr-3"
-                        >
-                          <Eye className="w-5 h-5 inline" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(customer._id)}
+                          onClick={(e) => handleDelete(customer._id, e)}
                           className="text-red-600 hover:text-red-800"
                         >
                           <Trash2 className="w-5 h-5 inline" />
