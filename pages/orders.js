@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Search, Download, Filter } from 'lucide-react';
+import { Search, Download, Filter, ChevronRight, Calendar, User, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { downloadReceipt } from '../lib/pdfGenerator';
@@ -50,20 +50,33 @@ export default function Orders() {
   };
 
   const handleDownloadReceipt = (order, e) => {
-    e.stopPropagation(); // Prevent row click navigation
+    e.stopPropagation();
     downloadReceipt(order, order.customerId, 'invoice');
   };
 
   const getStatusColor = (status) => {
     switch (status) {
       case 'paid':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border-green-200';
       case 'partial':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'unpaid':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'paid':
+        return '✓';
+      case 'partial':
+        return '◐';
+      case 'unpaid':
+        return '○';
+      default:
+        return '•';
     }
   };
 
@@ -74,23 +87,23 @@ export default function Orders() {
       </Head>
       <Layout title="Orders">
         {/* Filters */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search by order number or customer name..."
+              placeholder="Search orders or customers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bge-green"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bge-green text-base"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-gray-600" />
+          <div className="flex items-center gap-2 sm:w-auto">
+            <Filter className="w-5 h-5 text-gray-600 flex-shrink-0" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-bge-green"
+              className="flex-1 sm:flex-initial px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bge-green text-base bg-white"
             >
               <option value="all">All Status</option>
               <option value="unpaid">Unpaid</option>
@@ -100,100 +113,241 @@ export default function Orders() {
           </div>
         </div>
 
-        {/* Orders List */}
-        <div className="card">
-          {loading ? (
-            <div className="text-center py-8 text-gray-600">Loading...</div>
-          ) : filteredOrders.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Order #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Paid
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Balance
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredOrders.map((order) => (
-                    <tr 
-                      key={order._id} 
-                      onClick={() => router.push(`/customers/${order.customerId._id}`)}
-                      className="hover:bg-gray-50 cursor-pointer"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{order.customerId?.name || 'N/A'}</div>
-                        <div className="text-sm text-gray-500">{order.customerId?.phone || ''}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-600">
-                          {new Date(order.createdAt).toLocaleDateString()}
+        {/* Loading State */}
+        {loading ? (
+          <div className="card">
+            <div className="text-center py-12 text-gray-600">
+              <div className="animate-pulse">Loading orders...</div>
+            </div>
+          </div>
+        ) : filteredOrders.length > 0 ? (
+          <>
+            {/* Desktop Table View - Hidden on Mobile */}
+            <div className="hidden lg:block card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 xl:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Order #
+                      </th>
+                      <th className="px-4 xl:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Customer
+                      </th>
+                      <th className="px-4 xl:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-4 xl:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total
+                      </th>
+                      <th className="px-4 xl:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Paid
+                      </th>
+                      <th className="px-4 xl:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Balance
+                      </th>
+                      <th className="px-4 xl:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 xl:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredOrders.map((order) => (
+                      <tr 
+                        key={order._id} 
+                        onClick={() => router.push(`/customers/${order.customerId._id}`)}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      >
+                        <td className="px-4 xl:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
+                        </td>
+                        <td className="px-4 xl:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{order.customerId?.name || 'N/A'}</div>
+                          <div className="text-xs text-gray-500">{order.customerId?.phone || ''}</div>
+                        </td>
+                        <td className="px-4 xl:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-600">
+                            {new Date(order.createdAt).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-4 xl:px-6 py-4 whitespace-nowrap text-right">
+                          <div className="text-sm font-semibold text-gray-900">
+                            ₦{order.totalAmount.toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="px-4 xl:px-6 py-4 whitespace-nowrap text-right">
+                          <div className="text-sm font-semibold text-green-600">
+                            ₦{order.amountPaid.toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="px-4 xl:px-6 py-4 whitespace-nowrap text-right">
+                          <div className="text-sm font-semibold text-red-600">
+                            ₦{order.balance.toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="px-4 xl:px-6 py-4 whitespace-nowrap text-center">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
+                            <span className="mr-1">{getStatusIcon(order.status)}</span>
+                            {order.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-4 xl:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={(e) => handleDownloadReceipt(order, e)}
+                            className="text-blue-600 hover:text-blue-800 transition-colors p-1"
+                            title="Download Receipt"
+                          >
+                            <Download className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile & Tablet Card View - Hidden on Desktop */}
+            <div className="lg:hidden space-y-3">
+              {filteredOrders.map((order) => (
+                <div
+                  key={order._id}
+                  onClick={() => router.push(`/customers/${order.customerId._id}`)}
+                  className="card hover:shadow-md transition-shadow cursor-pointer active:bg-gray-50"
+                >
+                  {/* Header Section */}
+                  <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-100">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-gray-500">Order</span>
+                        <span className="text-sm font-bold text-gray-900">{order.orderNumber}</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600 mt-1">
+                        <User className="w-4 h-4 mr-1.5 flex-shrink-0" />
+                        <span className="font-medium truncate">{order.customerId?.name || 'N/A'}</span>
+                      </div>
+                      {order.customerId?.phone && (
+                        <div className="text-xs text-gray-500 ml-5 mt-0.5">
+                          {order.customerId.phone}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm font-semibold text-gray-900">
-                          ₦{order.totalAmount.toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm font-semibold text-green-600">
+                      )}
+                    </div>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border flex-shrink-0 ml-2 ${getStatusColor(order.status)}`}>
+                      <span className="mr-1">{getStatusIcon(order.status)}</span>
+                      {order.status.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    {/* Date */}
+                    <div>
+                      <div className="flex items-center text-xs text-gray-500 mb-1">
+                        <Calendar className="w-3.5 h-3.5 mr-1" />
+                        Date
+                      </div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {new Date(order.createdAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Total Amount */}
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500 mb-1">Total Amount</div>
+                      <div className="text-sm font-bold text-gray-900">
+                        ₦{order.totalAmount.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Information */}
+                  <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Amount Paid</div>
+                        <div className="text-sm font-bold text-green-600">
                           ₦{order.amountPaid.toLocaleString()}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm font-semibold text-red-600">
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500 mb-1">Balance</div>
+                        <div className="text-sm font-bold text-red-600">
                           ₦{order.balance.toLocaleString()}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
-                          {order.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={(e) => handleDownloadReceipt(order, e)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Download Receipt"
-                        >
-                          <Download className="w-5 h-5 inline" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+
+                    {/* Payment Progress Bar */}
+                    {order.totalAmount > 0 && (
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-green-500 h-full rounded-full transition-all"
+                            style={{ width: `${(order.amountPaid / order.totalAmount) * 100}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-500 text-right mt-1">
+                          {((order.amountPaid / order.totalAmount) * 100).toFixed(0)}% paid
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Footer */}
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <button
+                      onClick={(e) => handleDownloadReceipt(order, e)}
+                      className="flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                    >
+                      <Download className="w-4 h-4 mr-1.5" />
+                      Download Receipt
+                    </button>
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : (
+
+            {/* Results Summary */}
+            <div className="mt-4 text-center text-sm text-gray-500">
+              Showing {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'}
+              {statusFilter !== 'all' && ` with ${statusFilter} status`}
+            </div>
+          </>
+        ) : (
+          <div className="card">
             <div className="text-center py-12">
-              <p className="text-gray-600">No orders found</p>
+              <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-600 mb-2">
+                {searchTerm || statusFilter !== 'all' 
+                  ? 'No orders match your filters' 
+                  : 'No orders found'}
+              </p>
+              {(searchTerm || statusFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('all');
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-800 mt-2"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </Layout>
     </>
   );
