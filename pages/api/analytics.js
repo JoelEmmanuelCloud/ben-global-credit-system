@@ -1,80 +1,111 @@
-import dbConnect from '../../lib/mongodb';
-import Order from '../../models/Order';
-import Customer from '../../models/Customer';
+import dbConnect from '../lib/dbConnect';
+import Customer from '../models/Customer';
+import Order from '../models/Order';
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  if (req.method === 'GET') {
-    try {
-      // Get all customers with debt
-      const customers = await Customer.find({ totalDebt: { $gt: 0 } })
-        .select('name totalDebt')
-        .sort({ totalDebt: -1 });
-      
-      // Get total debt
-      const totalDebt = customers.reduce((sum, customer) => sum + customer.totalDebt, 0);
-      
-      // Get monthly debt data for the last 12 months
-      const twelveMonthsAgo = new Date();
-      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-      
-      const orders = await Order.find({
-        createdAt: { $gte: twelveMonthsAgo },
-      });
-      
-      // Group by month
-      const monthlyData = {};
-      const months = [];
-      
-      for (let i = 11; i >= 0; i--) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        
-        monthlyData[monthKey] = {
-          name: monthName,
-          debt: 0,
-          paid: 0,
-        };
-        months.push(monthKey);
-      }
-      
-      // Calculate monthly debts
-      orders.forEach(order => {
-        const orderDate = new Date(order.createdAt);
-        const monthKey = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (monthlyData[monthKey]) {
-          monthlyData[monthKey].debt += order.totalAmount;
-          monthlyData[monthKey].paid += order.amountPaid;
+  try {
+    // Get all customers with their debt
+    const customers = await Customer.find({})
+      .sort({ totalDebt: -1 })
+      .limit(10);
+
+    // Get all orders for chart data
+    const orders = await Order.find({});
+
+    // Calculate stats
+    const totalCustomers = await Customer.countDocuments();
+    const totalOrders = orders.length;
+    
+    // Calculate total debt across all customers
+    const allCustomers = await Customer.find({});
+    const totalDebt = allCustomers.reduce((sum, customer) => sum + customer.totalDebt, 0);
+    
+    // Count customers with debt
+    const customersWithDebt = await Customer.countDocuments({ totalDebt: { $gt: 0 } });
+
+    // Calculate order status counts based on customer debt
+    let paidOrders = 0;
+    let partialOrders = 0;
+    let unpaidOrders = 0;
+
+    for (const customer of allCustomers) {
+      const customerOrders = await Order.find({ customerId: customer._id });
+      const totalOrderAmount = customerOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+      const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
+
+      if (customerOrders.length > 0) {
+        if (totalPaid === 0 && totalOrderAmount > 0) {
+          unpaidOrders += customerOrders.length;
+        } else if (totalPaid >= totalOrderAmount) {
+          paidOrders += customerOrders.length;
+        } else if (totalPaid > 0 && totalPaid < totalOrderAmount) {
+          partialOrders += customerOrders.length;
         }
-      });
-      
-      const chartData = months.map(month => monthlyData[month]);
-      
-      // Get statistics
-      const stats = {
-        totalCustomers: await Customer.countDocuments(),
-        customersWithDebt: customers.length,
-        totalDebt,
-        totalOrders: await Order.countDocuments(),
-        unpaidOrders: await Order.countDocuments({ status: 'unpaid' }),
-        partialOrders: await Order.countDocuments({ status: 'partial' }),
-        paidOrders: await Order.countDocuments({ status: 'paid' }),
-      };
-      
-      res.status(200).json({
-        success: true,
-        stats,
-        customers,
-        chartData,
-      });
-    } catch (error) {
-      res.status(400).json({ success: false, error: error.message });
+      }
     }
-  } else {
-    res.status(405).json({ success: false, message: 'Method not allowed' });
+
+    // Prepare chart data for last 12 months
+    const chartData = [];
+    const now = new Date();
+    
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+      const year = date.getFullYear();
+      
+      // Get orders for this month
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      
+      const monthOrders = orders.filter(order => {
+        const orderDate = new Date(order.createdAt);
+        return orderDate >= monthStart && orderDate <= monthEnd;
+      });
+
+      // Calculate debt issued this month (total of all orders)
+      const debtIssued = monthOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+
+      // Calculate payments made this month across all customers
+      let paymentsMade = 0;
+      for (const customer of allCustomers) {
+        if (customer.payments) {
+          const monthPayments = customer.payments.filter(payment => {
+            const paymentDate = new Date(payment.date);
+            return paymentDate >= monthStart && paymentDate <= monthEnd;
+          });
+          paymentsMade += monthPayments.reduce((sum, p) => sum + p.amount, 0);
+        }
+      }
+
+      chartData.push({
+        name: `${monthName} ${year}`,
+        debt: debtIssued,
+        paid: paymentsMade,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalCustomers,
+        totalOrders,
+        totalDebt,
+        customersWithDebt,
+        paidOrders,
+        partialOrders,
+        unpaidOrders,
+      },
+      customers: customers.map(c => ({
+        _id: c._id,
+        name: c.name,
+        totalDebt: c.totalDebt,
+      })),
+      chartData,
+    });
+  } catch (error) {
+    console.error('Analytics error:', error);
+    res.status(400).json({ success: false, message: error.message });
   }
 }

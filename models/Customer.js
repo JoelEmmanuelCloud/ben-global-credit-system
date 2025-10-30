@@ -1,5 +1,19 @@
 import mongoose from 'mongoose';
 
+const PaymentSchema = new mongoose.Schema({
+  amount: {
+    type: Number,
+    required: true,
+  },
+  date: {
+    type: Date,
+    default: Date.now,
+  },
+  note: {
+    type: String,
+  },
+});
+
 const CustomerSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -19,6 +33,7 @@ const CustomerSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  payments: [PaymentSchema], // Customer-level payments
   createdAt: {
     type: Date,
     default: Date.now,

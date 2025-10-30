@@ -2,9 +2,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { ArrowLeft, Plus, Download, DollarSign, X } from 'lucide-react';
+import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard } from 'lucide-react';
 import Head from 'next/head';
-import { downloadReceipt } from '../../lib/pdfGenerator';
+import { downloadCustomerReceipt } from '../../lib/pdfGenerator';
 
 export default function CustomerDetail() {
   const router = useRouter();
@@ -14,7 +14,6 @@ export default function CustomerDetail() {
   const [loading, setLoading] = useState(true);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
   const [products, setProducts] = useState([
@@ -91,14 +90,21 @@ export default function CustomerDetail() {
   const handleMakePayment = async (e) => {
     e.preventDefault();
 
+    const amount = parseFloat(paymentAmount);
+    
+    if (amount > customer.totalDebt) {
+      alert(`Payment amount (₦${amount.toLocaleString()}) cannot exceed total debt (₦${customer.totalDebt.toLocaleString()})`);
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/orders/${selectedOrder._id}/payment`, {
+      const res = await fetch(`/api/customers/${id}/payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: parseFloat(paymentAmount),
+          amount: amount,
           note: paymentNote,
         }),
       });
@@ -109,7 +115,6 @@ export default function CustomerDetail() {
         setShowPaymentModal(false);
         setPaymentAmount('');
         setPaymentNote('');
-        setSelectedOrder(null);
         fetchCustomerDetails();
         alert('Payment recorded successfully!');
       } else {
@@ -121,8 +126,17 @@ export default function CustomerDetail() {
     }
   };
 
-  const handleDownloadReceipt = (order) => {
-    downloadReceipt(order, customer, 'invoice');
+  const handleDownloadStatement = () => {
+    downloadCustomerReceipt(customer, orders);
+  };
+
+  const getTotalOrders = () => {
+    return orders.reduce((sum, order) => sum + order.totalAmount, 0);
+  };
+
+  const getTotalPaid = () => {
+    if (!customer.payments) return 0;
+    return customer.payments.reduce((sum, payment) => sum + payment.amount, 0);
   };
 
   if (loading) {
@@ -155,7 +169,7 @@ export default function CustomerDetail() {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       </Head>
       <Layout>
-        {/* Back Button - Improved mobile touch target */}
+        {/* Back Button */}
         <button
           onClick={() => router.push('/customers')}
           className="flex items-center text-bge-green hover:text-bge-light-green mb-4 sm:mb-6 p-2 -ml-2 rounded-lg hover:bg-green-50 transition-colors min-h-[44px]"
@@ -164,7 +178,7 @@ export default function CustomerDetail() {
           <span className="font-medium">Back to Customers</span>
         </button>
 
-        {/* Customer Info Card - Responsive layout */}
+        {/* Customer Info Card */}
         <div className="card mb-4 sm:mb-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div className="flex-1 min-w-0">
@@ -174,7 +188,7 @@ export default function CustomerDetail() {
               {customer.address && <p className="text-gray-600 mt-2 text-sm sm:text-base">{customer.address}</p>}
             </div>
             <div className="sm:text-right sm:ml-4 p-4 bg-gray-50 rounded-lg sm:bg-transparent sm:p-0">
-              <p className="text-xs sm:text-sm text-gray-600 mb-1">Total Outstanding</p>
+              <p className="text-xs sm:text-sm text-gray-600 mb-1">Total Balance</p>
               <p className={`text-2xl sm:text-3xl font-bold ${customer.totalDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>
                 ₦{customer.totalDebt.toLocaleString()}
               </p>
@@ -182,120 +196,117 @@ export default function CustomerDetail() {
           </div>
         </div>
 
-        {/* Action Buttons - Improved mobile spacing */}
-        <div className="mb-4 sm:mb-6">
+        {/* Financial Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 sm:mb-6">
+          <div className="card bg-blue-50 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600 mb-1">Total Orders</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600">
+                  ₦{getTotalOrders().toLocaleString()}
+                </p>
+              </div>
+              <Package className="w-10 h-10 text-blue-400" />
+            </div>
+          </div>
+
+          <div className="card bg-green-50 border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600 mb-1">Total Paid</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">
+                  ₦{getTotalPaid().toLocaleString()}
+                </p>
+              </div>
+              <CreditCard className="w-10 h-10 text-green-400" />
+            </div>
+          </div>
+
+          <div className="card bg-red-50 border-l-4 border-red-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600 mb-1">Balance</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-600">
+                  ₦{customer.totalDebt.toLocaleString()}
+                </p>
+              </div>
+              <DollarSign className="w-10 h-10 text-red-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-4 sm:mb-6">
           <button
             onClick={() => setShowOrderModal(true)}
-            className="btn-primary w-full sm:w-auto flex items-center justify-center min-h-[48px] text-base"
+            className="btn-primary flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
           >
             <Plus className="w-5 h-5 mr-2" />
             Create New Order
           </button>
+          {customer.totalDebt > 0 && (
+            <button
+              onClick={() => setShowPaymentModal(true)}
+              className="btn-primary bg-green-600 hover:bg-green-700 flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
+            >
+              <DollarSign className="w-5 h-5 mr-2" />
+              Record Payment
+            </button>
+          )}
+          <button
+            onClick={handleDownloadStatement}
+            className="btn-secondary flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Download Statement
+          </button>
         </div>
 
-        {/* Orders List - Optimized card layout */}
-        <div className="card">
-          <h3 className="text-lg sm:text-xl font-semibold mb-4">Orders</h3>
+        {/* Orders List */}
+        <div className="card mb-4 sm:mb-6">
+          <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
+            <Package className="w-5 h-5 mr-2 text-bge-green" />
+            Orders ({orders.length})
+          </h3>
           {orders.length > 0 ? (
-            <div className="space-y-3 sm:space-y-4">
-              {orders.map((order) => (
-                <div key={order._id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
+            <div className="space-y-3">
+              {orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((order) => (
+                <div key={order._id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow bg-gray-50">
                   {/* Order Header */}
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-0 mb-3">
+                  <div className="flex justify-between items-start mb-3">
                     <div>
                       <p className="font-semibold text-gray-900 text-sm sm:text-base">Order #{order.orderNumber}</p>
-                      <p className="text-xs sm:text-sm text-gray-600">
-                        {new Date(order.createdAt).toLocaleDateString()}
+                      <p className="text-xs sm:text-sm text-gray-600 flex items-center mt-1">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {new Date(order.createdAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
                       </p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold self-start ${
-                      order.status === 'Paid' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {order.status}
-                    </span>
+                    <div className="text-right">
+                      <p className="text-lg sm:text-xl font-bold text-gray-900">
+                        ₦{order.totalAmount.toLocaleString()}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Products List - Better mobile display */}
-                  <div className="mb-3">
-                    <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-2">Products:</p>
+                  {/* Products List */}
+                  <div className="bg-white rounded p-2 sm:p-3">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Products:</p>
                     <div className="space-y-1">
                       {order.products.map((product, idx) => (
-                        <div key={idx} className="text-xs sm:text-sm text-gray-600 flex flex-wrap justify-between gap-1">
-                          <span className="break-words flex-1 min-w-0">
+                        <div key={idx} className="text-xs sm:text-sm text-gray-600 flex justify-between gap-2">
+                          <span className="break-words flex-1">
                             {product.name} (x{product.quantity})
                           </span>
                           <span className="font-semibold whitespace-nowrap">
-                            ₦{(product.quantity * product.unitPrice).toLocaleString()}
+                            ₦{product.totalPrice.toLocaleString()}
                           </span>
                         </div>
                       ))}
                     </div>
-                  </div>
-
-                  {/* Financial Info - Stacked on mobile */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3 p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="text-xs text-gray-600">Total Amount</p>
-                      <p className="text-sm sm:text-base font-semibold text-gray-900">
-                        ₦{order.totalAmount.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">Amount Paid</p>
-                      <p className="text-sm sm:text-base font-semibold text-green-600">
-                        ₦{order.amountPaid.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">Balance</p>
-                      <p className={`text-sm sm:text-base font-semibold ${
-                        order.balance > 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
-                        ₦{order.balance.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Payment History */}
-                  {order.payments && order.payments.length > 0 && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-2">Payment History:</p>
-                      <div className="space-y-1">
-                        {order.payments.map((payment, idx) => (
-                          <div key={idx} className="text-xs sm:text-sm text-gray-600 flex justify-between gap-2">
-                            <span className="truncate">{new Date(payment.date).toLocaleDateString()}</span>
-                            <span className="text-green-600 font-semibold whitespace-nowrap">
-                              ₦{payment.amount.toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Actions - Stacked on mobile, inline on desktop */}
-                  <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                    {order.balance > 0 && (
-                      <button
-                        onClick={() => {
-                          setSelectedOrder(order);
-                          setShowPaymentModal(true);
-                        }}
-                        className="btn-primary text-sm flex items-center justify-center min-h-[44px] flex-1 sm:flex-initial"
-                      >
-                        <DollarSign className="w-4 h-4 mr-1" />
-                        Make Payment
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDownloadReceipt(order)}
-                      className="btn-secondary text-sm flex items-center justify-center min-h-[44px] flex-1 sm:flex-initial"
-                    >
-                      <Download className="w-4 h-4 mr-1" />
-                      Download Receipt
-                    </button>
                   </div>
                 </div>
               ))}
@@ -305,7 +316,41 @@ export default function CustomerDetail() {
           )}
         </div>
 
-        {/* Create Order Modal - Responsive improvements */}
+        {/* Payment History */}
+        {customer.payments && customer.payments.length > 0 && (
+          <div className="card">
+            <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
+              <CreditCard className="w-5 h-5 mr-2 text-bge-green" />
+              Payment History ({customer.payments.length})
+            </h3>
+            <div className="space-y-3">
+              {customer.payments.sort((a, b) => new Date(b.date) - new Date(a.date)).map((payment, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-green-50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600 flex items-center">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {new Date(payment.date).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </p>
+                      {payment.note && (
+                        <p className="text-xs text-gray-500 mt-1">{payment.note}</p>
+                      )}
+                    </div>
+                    <p className="text-lg sm:text-xl font-bold text-green-600">
+                      ₦{payment.amount.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Create Order Modal */}
         {showOrderModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -392,11 +437,14 @@ export default function CustomerDetail() {
 
                 <div className="border-t border-gray-200 pt-4 mb-4">
                   <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                    <span className="text-base sm:text-lg font-semibold">Total Amount:</span>
+                    <span className="text-base sm:text-lg font-semibold">Order Total:</span>
                     <span className="text-xl sm:text-2xl font-bold text-bge-green">
                       ₦{calculateTotal().toLocaleString()}
                     </span>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    This will be added to customer's total debt
+                  </p>
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
@@ -419,8 +467,8 @@ export default function CustomerDetail() {
           </div>
         )}
 
-        {/* Make Payment Modal - Responsive improvements */}
-        {showPaymentModal && selectedOrder && (
+        {/* Make Payment Modal */}
+        {showPaymentModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
@@ -430,7 +478,6 @@ export default function CustomerDetail() {
                     setShowPaymentModal(false);
                     setPaymentAmount('');
                     setPaymentNote('');
-                    setSelectedOrder(null);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
@@ -439,27 +486,30 @@ export default function CustomerDetail() {
               </div>
               
               <div className="p-4 sm:p-6">
-                <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Order #{selectedOrder.orderNumber}</p>
-                  <p className="text-xl sm:text-2xl font-bold text-red-600 mt-2">
-                    Balance: ₦{selectedOrder.balance.toLocaleString()}
+                <div className="mb-4 p-4 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-sm text-gray-600 mb-1">Total Outstanding Balance</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-red-600">
+                    ₦{customer.totalDebt.toLocaleString()}
                   </p>
                 </div>
                 
                 <form onSubmit={handleMakePayment} className="space-y-4">
                   <div>
-                    <label className="label text-sm">Payment Amount (₦)</label>
+                    <label className="label text-sm">Payment Amount (₦) *</label>
                     <input
                       type="number"
                       value={paymentAmount}
                       onChange={(e) => setPaymentAmount(e.target.value)}
                       className="input-field text-sm w-full"
                       min="0.01"
-                      max={selectedOrder.balance}
+                      max={customer.totalDebt}
                       step="0.01"
                       placeholder="Enter amount"
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Maximum: ₦{customer.totalDebt.toLocaleString()}
+                    </p>
                   </div>
                   <div>
                     <label className="label text-sm">Note (Optional)</label>
@@ -478,7 +528,6 @@ export default function CustomerDetail() {
                         setShowPaymentModal(false);
                         setPaymentAmount('');
                         setPaymentNote('');
-                        setSelectedOrder(null);
                       }}
                       className="btn-secondary w-full sm:w-auto min-h-[48px]"
                     >
