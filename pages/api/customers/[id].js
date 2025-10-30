@@ -1,5 +1,5 @@
 // api/customers/[id].js
-import dbConnect from '../../../lib/dbConnect';
+import dbConnect from '../../../lib/mongodb';
 import Customer from '../../../models/Customer';
 import Order from '../../../models/Order';
 

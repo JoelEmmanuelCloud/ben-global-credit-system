@@ -1,6 +1,6 @@
-import dbConnect from '../lib/dbConnect';
-import Customer from '../models/Customer';
-import Order from '../models/Order';
+import dbConnect from '../../lib/mongodb';
+import Customer from '../../models/Customer';
+import Order from '../../models/Order';
 
 export default async function handler(req, res) {
   await dbConnect();
