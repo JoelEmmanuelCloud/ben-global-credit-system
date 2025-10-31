@@ -57,9 +57,20 @@ export default async function handler(req, res) {
           totalAmount,
         });
 
+        // Get customer to calculate new totalDebt
+        const customer = await Customer.findById(customerId);
+        
+        // Get all orders for this customer
+        const allOrders = await Order.find({ customerId });
+        const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+        const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
+        
+        // totalDebt = oldBalance + orders - payments
+        const newTotalDebt = (customer.oldBalance || 0) + totalOrders - totalPaid;
+        
         // Update customer's total debt
         await Customer.findByIdAndUpdate(customerId, {
-          $inc: { totalDebt: totalAmount },
+          totalDebt: newTotalDebt,
         });
 
         const populatedOrder = await Order.findById(order._id).populate('customerId');

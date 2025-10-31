@@ -17,7 +17,7 @@ export default function CustomerDetail() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
   const [products, setProducts] = useState([
-    { name: '', quantity: 1, unitPrice: 0 }
+    { name: '', quantity: '', unitPrice: '' }
   ]);
 
   useEffect(() => {
@@ -33,6 +33,7 @@ export default function CustomerDetail() {
       if (data.success) {
         setCustomer(data.customer);
         setOrders(data.orders);
+        console.log('Customer data:', data.customer); // Debug log
       }
     } catch (error) {
       console.error('Error fetching customer:', error);
@@ -42,7 +43,7 @@ export default function CustomerDetail() {
   };
 
   const handleAddProduct = () => {
-    setProducts([...products, { name: '', quantity: 1, unitPrice: 0 }]);
+    setProducts([...products, { name: '', quantity: '', unitPrice: '' }]);
   };
 
   const handleRemoveProduct = (index) => {
@@ -52,18 +53,51 @@ export default function CustomerDetail() {
 
   const handleProductChange = (index, field, value) => {
     const newProducts = [...products];
-    newProducts[index][field] = value;
+    
+    if (field === 'unitPrice') {
+      // Remove commas and parse as number
+      const numericValue = value.replace(/,/g, '');
+      newProducts[index][field] = numericValue;
+    } else if (field === 'quantity') {
+      newProducts[index][field] = value;
+    } else {
+      newProducts[index][field] = value;
+    }
+    
     setProducts(newProducts);
+  };
+
+  const formatCurrency = (value) => {
+    if (!value) return '';
+    const num = parseFloat(value.toString().replace(/,/g, ''));
+    if (isNaN(num)) return '';
+    return num.toLocaleString();
   };
 
   const calculateTotal = () => {
     return products.reduce((sum, product) => {
-      return sum + (product.quantity * product.unitPrice);
+      const qty = parseFloat(product.quantity) || 0;
+      const price = parseFloat(product.unitPrice.toString().replace(/,/g, '')) || 0;
+      return sum + (qty * price);
     }, 0);
   };
 
   const handleCreateOrder = async (e) => {
     e.preventDefault();
+
+    // Validate and prepare products
+    const validProducts = products
+      .filter(p => p.name && p.quantity && p.unitPrice)
+      .map(p => ({
+        name: p.name,
+        quantity: parseFloat(p.quantity),
+        unitPrice: parseFloat(p.unitPrice.toString().replace(/,/g, ''))
+      }));
+
+    if (validProducts.length === 0) {
+      alert('Please add at least one valid product');
+      return;
+    }
 
     try {
       const res = await fetch('/api/orders', {
@@ -73,13 +107,13 @@ export default function CustomerDetail() {
         },
         body: JSON.stringify({
           customerId: id,
-          products: products.filter(p => p.name && p.quantity > 0 && p.unitPrice > 0),
+          products: validProducts,
         }),
       });
 
       if (res.ok) {
         setShowOrderModal(false);
-        setProducts([{ name: '', quantity: 1, unitPrice: 0 }]);
+        setProducts([{ name: '', quantity: '', unitPrice: '' }]);
         fetchCustomerDetails();
       }
     } catch (error) {
@@ -139,6 +173,11 @@ export default function CustomerDetail() {
     return customer.payments.reduce((sum, payment) => sum + payment.amount, 0);
   };
 
+  const getOldBalance = () => {
+    if (!customer.oldBalance) return 0;
+    return parseFloat(customer.oldBalance) || 0;
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -161,6 +200,9 @@ export default function CustomerDetail() {
       </Layout>
     );
   }
+
+  const oldBalance = getOldBalance();
+  const hasOldBalance = oldBalance > 0;
 
   return (
     <>
@@ -197,40 +239,54 @@ export default function CustomerDetail() {
         </div>
 
         {/* Financial Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 sm:mb-6">
+        <div className={`grid ${hasOldBalance ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'} gap-3 sm:gap-4 mb-4 sm:mb-6`}>
+          {hasOldBalance && (
+            <div className="card bg-orange-50 border-l-4 border-orange-500">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-xs text-gray-600 mb-1">Old Balance</p>
+                  <p className="text-lg sm:text-xl font-bold text-orange-600">
+                    ₦{oldBalance.toLocaleString()}
+                  </p>
+                </div>
+                <Package className="w-8 h-8 text-orange-400" />
+              </div>
+            </div>
+          )}
+
           <div className="card bg-blue-50 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1">
                 <p className="text-xs text-gray-600 mb-1">Total Orders</p>
-                <p className="text-xl sm:text-2xl font-bold text-blue-600">
+                <p className="text-lg sm:text-xl font-bold text-blue-600">
                   ₦{getTotalOrders().toLocaleString()}
                 </p>
               </div>
-              <Package className="w-10 h-10 text-blue-400" />
+              <Package className="w-8 h-8 text-blue-400" />
             </div>
           </div>
 
           <div className="card bg-green-50 border-l-4 border-green-500">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1">
                 <p className="text-xs text-gray-600 mb-1">Total Paid</p>
-                <p className="text-xl sm:text-2xl font-bold text-green-600">
+                <p className="text-lg sm:text-xl font-bold text-green-600">
                   ₦{getTotalPaid().toLocaleString()}
                 </p>
               </div>
-              <CreditCard className="w-10 h-10 text-green-400" />
+              <CreditCard className="w-8 h-8 text-green-400" />
             </div>
           </div>
 
           <div className="card bg-red-50 border-l-4 border-red-500">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1">
                 <p className="text-xs text-gray-600 mb-1">Balance</p>
-                <p className="text-xl sm:text-2xl font-bold text-red-600">
+                <p className="text-lg sm:text-xl font-bold text-red-600">
                   ₦{customer.totalDebt.toLocaleString()}
                 </p>
               </div>
-              <DollarSign className="w-10 h-10 text-red-400" />
+              <DollarSign className="w-8 h-8 text-red-400" />
             </div>
           </div>
         </div>
@@ -359,7 +415,7 @@ export default function CustomerDetail() {
                 <button
                   onClick={() => {
                     setShowOrderModal(false);
-                    setProducts([{ name: '', quantity: 1, unitPrice: 0 }]);
+                    setProducts([{ name: '', quantity: '', unitPrice: '' }]);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
@@ -389,21 +445,21 @@ export default function CustomerDetail() {
                             <input
                               type="number"
                               value={product.quantity}
-                              onChange={(e) => handleProductChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                              onChange={(e) => handleProductChange(index, 'quantity', e.target.value)}
                               className="input-field text-sm w-full"
                               min="1"
+                              placeholder="0"
                               required
                             />
                           </div>
                           <div>
                             <label className="label text-sm">Unit Price (₦)</label>
                             <input
-                              type="number"
-                              value={product.unitPrice}
-                              onChange={(e) => handleProductChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                              type="text"
+                              value={formatCurrency(product.unitPrice)}
+                              onChange={(e) => handleProductChange(index, 'unitPrice', e.target.value.replace(/,/g, ''))}
                               className="input-field text-sm w-full"
-                              min="0"
-                              step="0.01"
+                              placeholder="0"
                               required
                             />
                           </div>
@@ -411,7 +467,9 @@ export default function CustomerDetail() {
                       </div>
                       <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
                         <p className="text-sm font-medium text-gray-700">
-                          Subtotal: <span className="text-bge-green">₦{(product.quantity * product.unitPrice).toLocaleString()}</span>
+                          Subtotal: <span className="text-bge-green">
+                            ₦{((parseFloat(product.quantity) || 0) * (parseFloat(product.unitPrice.toString().replace(/,/g, '')) || 0)).toLocaleString()}
+                          </span>
                         </p>
                         {products.length > 1 && (
                           <button
@@ -452,7 +510,7 @@ export default function CustomerDetail() {
                     type="button"
                     onClick={() => {
                       setShowOrderModal(false);
-                      setProducts([{ name: '', quantity: 1, unitPrice: 0 }]);
+                      setProducts([{ name: '', quantity: '', unitPrice: '' }]);
                     }}
                     className="btn-secondary w-full sm:w-auto min-h-[48px]"
                   >

@@ -1,4 +1,4 @@
-//page/customers.js
+//pages/customers.js
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Plus, Search, Trash2, Phone, Mail, MapPin, ChevronRight } from 'lucide-react';
@@ -16,6 +16,7 @@ export default function Customers() {
     phone: '',
     email: '',
     address: '',
+    oldBalance: '',
   });
   const router = useRouter();
 
@@ -64,7 +65,7 @@ export default function Customers() {
 
       if (res.ok) {
         setShowModal(false);
-        setFormData({ name: '', phone: '', email: '', address: '' });
+        setFormData({ name: '', phone: '', email: '', address: '', oldBalance: '' });
         fetchCustomers();
       }
     } catch (error) {
@@ -302,6 +303,22 @@ export default function Customers() {
                       className="input-field text-base"
                       rows="3"
                     />
+                  </div>
+                  <div>
+                    <label className="label">Old Balance (₦)</label>
+                    <input
+                      type="text"
+                      value={formData.oldBalance ? parseFloat(formData.oldBalance.toString().replace(/,/g, '')).toLocaleString() : ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/,/g, '');
+                        setFormData({ ...formData, oldBalance: value });
+                      }}
+                      className="input-field text-base"
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter any existing debt before adding to system
+                    </p>
                   </div>
                   <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
                     <button

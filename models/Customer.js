@@ -29,11 +29,15 @@ const CustomerSchema = new mongoose.Schema({
   address: {
     type: String,
   },
+  oldBalance: {
+    type: Number,
+    default: 0,
+  },
   totalDebt: {
     type: Number,
     default: 0,
   },
-  payments: [PaymentSchema], // Customer-level payments
+  payments: [PaymentSchema],
   createdAt: {
     type: Date,
     default: Date.now,

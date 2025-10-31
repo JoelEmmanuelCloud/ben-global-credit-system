@@ -1,6 +1,7 @@
 // api/customers/[id]/payment.js
-import dbConnect from '../../../../lib/mongodb';
-import Customer from '../../../../models/Customer';
+import dbConnect from '../../../lib/dbConnect';
+import Customer from '../../../models/Customer';
+import Order from '../../../models/Order';
 
 export default async function handler(req, res) {
   const {
@@ -47,8 +48,12 @@ export default async function handler(req, res) {
           note: note || '',
         });
 
-        // Update total debt
-        customer.totalDebt = Math.max(0, customer.totalDebt - parseFloat(amount));
+        // Recalculate totalDebt: oldBalance + orders - payments
+        const allOrders = await Order.find({ customerId: id });
+        const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+        const totalPaid = customer.payments.reduce((sum, p) => sum + p.amount, 0);
+        
+        customer.totalDebt = Math.max(0, (customer.oldBalance || 0) + totalOrders - totalPaid);
 
         await customer.save();
 
