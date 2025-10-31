@@ -124,7 +124,7 @@ export default function CustomerDetail() {
   const handleMakePayment = async (e) => {
     e.preventDefault();
 
-    const amount = parseFloat(paymentAmount);
+    const amount = parseFloat(paymentAmount.toString().replace(/,/g, ''));
     
     if (amount > customer.totalDebt) {
       alert(`Payment amount (₦${amount.toLocaleString()}) cannot exceed total debt (₦${customer.totalDebt.toLocaleString()})`);
@@ -555,14 +555,17 @@ export default function CustomerDetail() {
                   <div>
                     <label className="label text-sm">Payment Amount (₦) *</label>
                     <input
-                      type="number"
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      type="text"
+                      value={paymentAmount ? parseFloat(paymentAmount.toString().replace(/,/g, '')).toLocaleString() : ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/,/g, '');
+                        // Only allow numbers
+                        if (value === '' || !isNaN(value)) {
+                          setPaymentAmount(value);
+                        }
+                      }}
                       className="input-field text-sm w-full"
-                      min="0.01"
-                      max={customer.totalDebt}
-                      step="0.01"
-                      placeholder="Enter amount"
+                      placeholder="0"
                       required
                     />
                     <p className="text-xs text-gray-500 mt-1">
