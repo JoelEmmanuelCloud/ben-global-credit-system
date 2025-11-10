@@ -45,9 +45,17 @@ export default async function handler(req, res) {
           0
         );
 
-        // Generate order number
-        const orderCount = await Order.countDocuments();
-        const orderNumber = `ORD-${String(orderCount + 1).padStart(5, '0')}`;
+        // Generate order number - find the highest existing order number
+        const lastOrder = await Order.findOne().sort({ orderNumber: -1 });
+        let nextOrderNum = 1;
+        
+        if (lastOrder && lastOrder.orderNumber) {
+          // Extract number from "ORD-00015" format
+          const lastNum = parseInt(lastOrder.orderNumber.split('-')[1]);
+          nextOrderNum = lastNum + 1;
+        }
+        
+        const orderNumber = `ORD-${String(nextOrderNum).padStart(5, '0')}`;
 
         // Create order
         const order = await Order.create({
