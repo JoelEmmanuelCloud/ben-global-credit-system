@@ -1,3 +1,4 @@
+// pages/api/orders/[id].js
 import dbConnect from '../../../lib/mongodb';
 import Order from '../../../models/Order';
 
