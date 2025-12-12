@@ -1,3 +1,4 @@
+// pages/dashboard.js
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';

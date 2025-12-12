@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search } from 'lucide-react';
 import Head from 'next/head';
 import { downloadCustomerReceipt } from '../../lib/pdfGenerator';
 
@@ -12,7 +12,13 @@ export default function CustomerDetail() {
   const [customer, setCustomer] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
+  // Product inventory states
+  const [allProducts, setAllProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+
   // Modal states
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -24,7 +30,7 @@ export default function CustomerDetail() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
   const [products, setProducts] = useState([
-    { name: '', quantity: '', unitPrice: '' }
+    { name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }
   ]);
   
   // Edit states
@@ -35,6 +41,7 @@ export default function CustomerDetail() {
   useEffect(() => {
     if (id) {
       fetchCustomerDetails();
+      fetchInventoryProducts();
     }
   }, [id]);
 
@@ -51,6 +58,54 @@ export default function CustomerDetail() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchInventoryProducts = async () => {
+    try {
+      const res = await fetch('/api/Product?active=true');
+      const data = await res.json();
+      if (data.success) {
+        setAllProducts(data.products);
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  // Product search and selection
+  const handleProductSearch = (searchValue, productIndex) => {
+    setProductSearchTerm(searchValue);
+
+    if (searchValue.length > 0) {
+      const filtered = allProducts.filter(product =>
+        product.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+        (product.category && product.category.toLowerCase().includes(searchValue.toLowerCase()))
+      );
+      setFilteredProducts(filtered);
+      setShowProductDropdown(true);
+    } else {
+      setShowProductDropdown(false);
+    }
+
+    // Update the product name
+    const newProducts = [...products];
+    newProducts[productIndex].name = searchValue;
+    setProducts(newProducts);
+  };
+
+  const handleSelectProduct = (product, productIndex) => {
+    const newProducts = [...products];
+    newProducts[productIndex] = {
+      name: product.name,
+      quantity: newProducts[productIndex].quantity || '',
+      unitPrice: product.unitPrice.toString(),
+      productId: product._id,
+      availableStock: product.currentStock,
+      unit: product.unit,
+    };
+    setProducts(newProducts);
+    setShowProductDropdown(false);
+    setProductSearchTerm('');
   };
 
   // Customer edit/delete functions
@@ -121,7 +176,7 @@ export default function CustomerDetail() {
 
       if (res.ok) {
         setShowEditOrderModal(false);
-        setProducts([{ name: '', quantity: '', unitPrice: '' }]);
+        setProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }]);
         fetchCustomerDetails();
         alert('Order updated successfully!');
       }
@@ -201,7 +256,7 @@ export default function CustomerDetail() {
   };
 
   const handleAddProduct = () => {
-    setProducts([...products, { name: '', quantity: '', unitPrice: '' }]);
+    setProducts([...products, { name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }]);
   };
 
   const handleRemoveProduct = (index) => {
@@ -211,12 +266,20 @@ export default function CustomerDetail() {
 
   const handleProductChange = (index, field, value) => {
     const newProducts = [...products];
-    
+
     if (field === 'unitPrice') {
       const numericValue = value.replace(/,/g, '');
       newProducts[index][field] = numericValue;
     } else if (field === 'quantity') {
       newProducts[index][field] = value;
+
+      // Check stock availability
+      if (newProducts[index].availableStock !== null) {
+        const requestedQty = parseFloat(value) || 0;
+        if (requestedQty > newProducts[index].availableStock) {
+          alert(`Only ${newProducts[index].availableStock.toLocaleString()} ${newProducts[index].unit} available in stock!`);
+        }
+      }
     } else {
       newProducts[index][field] = value;
     }
@@ -255,6 +318,15 @@ export default function CustomerDetail() {
       return;
     }
 
+    // Check stock for inventory products
+    for (const product of products.filter(p => p.productId)) {
+      const requestedQty = parseFloat(product.quantity) || 0;
+      if (requestedQty > product.availableStock) {
+        alert(`Insufficient stock for ${product.name}. Available: ${product.availableStock.toLocaleString()} ${product.unit}`);
+        return;
+      }
+    }
+
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -267,13 +339,19 @@ export default function CustomerDetail() {
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setShowOrderModal(false);
-        setProducts([{ name: '', quantity: '', unitPrice: '' }]);
+        setProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }]);
         fetchCustomerDetails();
+        alert('Order created successfully!');
+      } else {
+        alert(data.message || 'Error creating order');
       }
     } catch (error) {
       console.error('Error creating order:', error);
+      alert('Error creating order');
     }
   };
 
@@ -536,7 +614,7 @@ export default function CustomerDetail() {
                       {order.products.map((product, idx) => (
                         <div key={idx} className="text-xs sm:text-sm text-gray-600 flex justify-between gap-2">
                           <span className="break-words flex-1">
-                            {product.name} (x{product.quantity} @ ₦{product.unitPrice.toLocaleString()})
+                            {product.name} (x{product.quantity.toLocaleString()} @ ₦{product.unitPrice.toLocaleString()})
                           </span>
                           <span className="font-semibold whitespace-nowrap">
                             ₦{product.totalPrice.toLocaleString()}
@@ -612,7 +690,7 @@ export default function CustomerDetail() {
                 <button
                   onClick={() => {
                     setShowOrderModal(false);
-                    setProducts([{ name: '', quantity: '', unitPrice: '' }]);
+                    setProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }]);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
@@ -625,29 +703,81 @@ export default function CustomerDetail() {
                   {products.map((product, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50">
                       <div className="space-y-3">
-                        <div>
-                          <label className="label text-sm">Product Name</label>
-                          <input
-                            type="text"
-                            value={product.name}
-                            onChange={(e) => handleProductChange(index, 'name', e.target.value)}
-                            className="input-field text-sm w-full"
-                            placeholder="e.g., Bag of Rice"
-                            required
-                          />
+                        {/* Product Name with Search */}
+                        <div className="relative">
+                          <label className="label text-sm">
+                            Product Name *
+                            {product.availableStock !== null && (
+                              <span className="ml-2 text-xs text-green-600">
+                                ({product.availableStock.toLocaleString()} {product.unit} available)
+                              </span>
+                            )}
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={product.name}
+                              onChange={(e) => handleProductSearch(e.target.value, index)}
+                              onFocus={() => {
+                                if (filteredProducts.length > 0) setShowProductDropdown(true);
+                              }}
+                              className="input-field text-sm w-full pr-10"
+                              placeholder="Search or type product name"
+                              required
+                            />
+                            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          </div>
+
+                          {/* Product Dropdown */}
+                          {showProductDropdown && filteredProducts.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {filteredProducts.map((prod) => (
+                                <button
+                                  key={prod._id}
+                                  type="button"
+                                  onClick={() => handleSelectProduct(prod, index)}
+                                  className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-gray-900">{prod.name}</p>
+                                      {prod.category && (
+                                        <p className="text-xs text-gray-500">{prod.category}</p>
+                                      )}
+                                    </div>
+                                    <div className="text-right ml-3">
+                                      <p className="text-sm font-semibold text-bge-green">
+                                        ₦{prod.unitPrice.toLocaleString()}
+                                      </p>
+                                      <p className={`text-xs ${prod.currentStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {prod.currentStock.toLocaleString()} {prod.unit}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
+
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="label text-sm">Quantity</label>
+                            <label className="label text-sm">Quantity *</label>
                             <input
                               type="number"
                               value={product.quantity}
                               onChange={(e) => handleProductChange(index, 'quantity', e.target.value)}
                               className="input-field text-sm w-full"
                               min="1"
+                              step="0.01"
                               placeholder="0"
                               required
                             />
+                            {product.availableStock !== null && parseFloat(product.quantity) > product.availableStock && (
+                              <p className="text-xs text-red-600 mt-1">
+                                Exceeds available stock!
+                              </p>
+                            )}
                           </div>
                           <div>
                             <label className="label text-sm">Unit Price (₦)</label>

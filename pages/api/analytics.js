@@ -1,3 +1,4 @@
+// pages/api/Analytics.js
 import dbConnect from '../../lib/mongodb';
 import Customer from '../../models/Customer';
 import Order from '../../models/Order';

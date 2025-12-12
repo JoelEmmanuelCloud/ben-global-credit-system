@@ -1,6 +1,7 @@
+//components/Layout.js
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Users, ShoppingCart, BarChart3, LogOut, Menu, X } from 'lucide-react';
+import { Users, ShoppingCart, BarChart3, LogOut, Menu, X, Warehouse } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Layout({ children, title }) {
@@ -17,6 +18,7 @@ export default function Layout({ children, title }) {
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
     { name: 'Customers', href: '/customers', icon: Users },
     { name: 'Orders', href: '/orders', icon: ShoppingCart },
+    { name: 'Warehouse', href: '/warehouse', icon: Warehouse },
   ];
 
   return (
