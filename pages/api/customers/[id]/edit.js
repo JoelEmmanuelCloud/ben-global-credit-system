@@ -2,6 +2,7 @@
 import dbConnect from '../../../../lib/mongodb';
 import Customer from '../../../../models/Customer';
 import Order from '../../../../models/Order';
+import Return from '../../../../models/Return';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -29,10 +30,12 @@ export default async function handler(req, res) {
 
       // Recalculate totalDebt only (don't modify wallet during edits)
       const allOrders = await Order.find({ customerId: id });
+      const allReturns = await Return.find({ customerId: id });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+      const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
 
-      customer.totalDebt = Math.max(0, (customer.oldBalance || 0) + totalOrders - totalPaid);
+      customer.totalDebt = Math.max(0, (customer.oldBalance || 0) + totalOrders - totalReturns - totalPaid);
 
       await customer.save();
 
