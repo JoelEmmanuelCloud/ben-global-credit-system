@@ -273,18 +273,6 @@ export default function CustomerDetail() {
   };
 
   // Return handlers
-  const handleReturnFromOrder = (order) => {
-    // Pre-populate return modal with order products
-    const orderProducts = order.products.map(p => ({
-      name: p.name,
-      quantity: p.quantity.toString(),
-      unitPrice: p.unitPrice.toString()
-    }));
-    setReturnProducts(orderProducts);
-    setReturnReason('');
-    setShowReturnModal(true);
-  };
-
   const handleAddReturnProduct = () => {
     setReturnProducts([...returnProducts, { name: '', quantity: '', unitPrice: '' }]);
   };
@@ -735,6 +723,13 @@ export default function CustomerDetail() {
             Create New Order
           </button>
           <button
+            onClick={() => setShowReturnModal(true)}
+            className="btn-primary bg-yellow-600 hover:bg-yellow-700 flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
+          >
+            <RotateCcw className="w-5 h-5 mr-2" />
+            Add Return
+          </button>
+          <button
             onClick={() => setShowPaymentModal(true)}
             className="btn-primary bg-green-600 hover:bg-green-700 flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
           >
@@ -779,13 +774,6 @@ export default function CustomerDetail() {
                           ₦{order.totalAmount.toLocaleString()}
                         </p>
                       </div>
-                      <button
-                        onClick={() => handleReturnFromOrder(order)}
-                        className="p-2 text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 rounded transition-colors"
-                        title="Create Return"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
                       <button
                         onClick={() => handleEditOrder(order)}
                         className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
