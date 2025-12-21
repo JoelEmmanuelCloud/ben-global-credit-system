@@ -37,13 +37,16 @@ export default async function handler(req, res) {
         0
       );
 
+      // Get customer's wallet balance before editing order
+      const customer = await Customer.findById(order.customerId);
+      const walletBeforeEdit = customer.wallet || 0;
+
       // Update order
       order.products = processedProducts;
       order.totalAmount = newTotalAmount;
       await order.save();
 
       // Recalculate customer's total debt and wallet
-      const customer = await Customer.findById(order.customerId);
       const allOrders = await Order.find({ customerId: order.customerId });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
@@ -58,6 +61,14 @@ export default async function handler(req, res) {
         customer.wallet = 0;
         customer.totalDebt = Math.abs(netBalance);
       }
+
+      // Calculate how much wallet was used for this order
+      const walletAfterEdit = customer.wallet || 0;
+      const walletUsedForOrder = Math.max(0, walletBeforeEdit - walletAfterEdit);
+
+      // Update the order with wallet used amount
+      order.walletUsed = walletUsedForOrder;
+      await order.save();
 
       await customer.save();
 

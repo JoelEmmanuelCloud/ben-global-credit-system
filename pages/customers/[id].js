@@ -627,6 +627,13 @@ export default function CustomerDetail() {
                         </div>
                       ))}
                     </div>
+                    {order.walletUsed > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <p className="text-xs text-purple-600 font-medium">
+                          ₦{order.walletUsed.toLocaleString()} paid from wallet
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

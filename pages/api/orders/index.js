@@ -135,12 +135,17 @@ export default async function handler(req, res) {
         throw new Error('Failed to generate unique order number');
       }
 
+      // Get customer's wallet balance before creating order
+      const customer = await Customer.findById(customerId);
+      const walletBeforeOrder = customer.wallet || 0;
+
       // Create order
       const order = await Order.create({
         customerId,
         orderNumber,
         products: processedProducts,
         totalAmount,
+        walletUsed: 0, // Will be updated below
       });
 
       // Update inventory stock
@@ -162,7 +167,6 @@ export default async function handler(req, res) {
       }
 
       // Update customer debt and wallet
-      const customer = await Customer.findById(customerId);
       const allOrders = await Order.find({ customerId });
       const totalOrders = allOrders.reduce((sum, order) => sum + order.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, payment) => sum + payment.amount, 0) : 0;
@@ -177,6 +181,14 @@ export default async function handler(req, res) {
         customer.wallet = 0;
         customer.totalDebt = Math.abs(netBalance);
       }
+
+      // Calculate how much wallet was used for this order
+      const walletAfterOrder = customer.wallet || 0;
+      const walletUsedForOrder = Math.max(0, walletBeforeOrder - walletAfterOrder);
+
+      // Update the order with wallet used amount
+      order.walletUsed = walletUsedForOrder;
+      await order.save();
 
       await customer.save();
 
