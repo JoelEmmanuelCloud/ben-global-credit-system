@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search, RotateCcw } from 'lucide-react';
 import Head from 'next/head';
 import { downloadCustomerReceipt } from '../../lib/pdfGenerator';
 
@@ -62,6 +62,13 @@ export default function CustomerDetail() {
       if (data.success) {
         setCustomer(data.customer);
         setOrders(data.orders);
+      }
+
+      // Fetch returns
+      const returnsRes = await fetch(`/api/customers/${id}/returns`);
+      const returnsData = await returnsRes.json();
+      if (returnsData.success) {
+        setReturns(returnsData.returns || []);
       }
     } catch (error) {
       console.error('Error fetching customer:', error);
@@ -265,6 +272,145 @@ export default function CustomerDetail() {
     }
   };
 
+  // Return handlers
+  const handleAddReturnProduct = () => {
+    setReturnProducts([...returnProducts, { name: '', quantity: '', unitPrice: '' }]);
+  };
+
+  const handleRemoveReturnProduct = (index) => {
+    const newProducts = returnProducts.filter((_, i) => i !== index);
+    setReturnProducts(newProducts);
+  };
+
+  const handleReturnProductChange = (index, field, value) => {
+    const newProducts = [...returnProducts];
+    if (field === 'unitPrice') {
+      const numericValue = value.replace(/,/g, '');
+      newProducts[index][field] = numericValue;
+    } else {
+      newProducts[index][field] = value;
+    }
+    setReturnProducts(newProducts);
+  };
+
+  const calculateReturnTotal = () => {
+    return returnProducts.reduce((sum, product) => {
+      const qty = parseFloat(product.quantity) || 0;
+      const price = parseFloat(product.unitPrice.toString().replace(/,/g, '')) || 0;
+      return sum + (qty * price);
+    }, 0);
+  };
+
+  const handleCreateReturn = async (e) => {
+    e.preventDefault();
+
+    const validProducts = returnProducts
+      .filter(p => p.name && p.quantity && p.unitPrice)
+      .map(p => ({
+        name: p.name,
+        quantity: parseFloat(p.quantity),
+        unitPrice: parseFloat(p.unitPrice.toString().replace(/,/g, ''))
+      }));
+
+    if (validProducts.length === 0) {
+      alert('Please add at least one valid product');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/customers/${id}/return`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          products: validProducts,
+          reason: returnReason,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setShowReturnModal(false);
+        setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+        setReturnReason('');
+        fetchCustomerDetails();
+        alert('Return created successfully! Customer debt has been reduced.');
+      } else {
+        alert(data.message || 'Error creating return');
+      }
+    } catch (error) {
+      console.error('Error creating return:', error);
+      alert('Error creating return');
+    }
+  };
+
+  const handleEditReturn = (returnItem) => {
+    setEditingReturn(returnItem);
+    setReturnProducts(returnItem.products.map(p => ({
+      name: p.name,
+      quantity: p.quantity.toString(),
+      unitPrice: p.unitPrice.toString()
+    })));
+    setReturnReason(returnItem.reason || '');
+    setShowEditReturnModal(true);
+  };
+
+  const handleSaveReturn = async (e) => {
+    e.preventDefault();
+
+    const validProducts = returnProducts
+      .filter(p => p.name && p.quantity && p.unitPrice)
+      .map(p => ({
+        name: p.name,
+        quantity: parseFloat(p.quantity),
+        unitPrice: parseFloat(p.unitPrice.toString().replace(/,/g, ''))
+      }));
+
+    if (validProducts.length === 0) {
+      alert('Please add at least one valid product');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/customers/${id}/return/${editingReturn._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: validProducts, reason: returnReason })
+      });
+
+      if (res.ok) {
+        setShowEditReturnModal(false);
+        setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+        setReturnReason('');
+        fetchCustomerDetails();
+        alert('Return updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating return:', error);
+      alert('Error updating return');
+    }
+  };
+
+  const handleDeleteReturn = async (returnId) => {
+    if (confirm('Are you sure you want to delete this return? This will increase the customer debt.')) {
+      try {
+        const res = await fetch(`/api/customers/${id}/return/${returnId}`, {
+          method: 'DELETE'
+        });
+
+        if (res.ok) {
+          fetchCustomerDetails();
+          alert('Return deleted successfully!');
+        }
+      } catch (error) {
+        console.error('Error deleting return:', error);
+        alert('Error deleting return');
+      }
+    }
+  };
+
   const handleAddProduct = () => {
     setProducts([...products, { name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }]);
   };
@@ -407,6 +553,10 @@ export default function CustomerDetail() {
     return orders.reduce((sum, order) => sum + order.totalAmount, 0);
   };
 
+  const getTotalReturns = () => {
+    return returns.reduce((sum, ret) => sum + ret.totalAmount, 0);
+  };
+
   const getTotalPaid = () => {
     if (!customer.payments) return 0;
     return customer.payments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -487,7 +637,7 @@ export default function CustomerDetail() {
         </div>
 
         {/* Financial Summary Cards */}
-        <div className={`grid ${hasOldBalance ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'} gap-3 sm:gap-4 mb-4 sm:mb-6`}>
+        <div className={`grid ${hasOldBalance ? 'grid-cols-2 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-5'} gap-3 sm:gap-4 mb-4 sm:mb-6`}>
           {hasOldBalance && (
             <div className="card bg-orange-50 border-l-4 border-orange-500">
               <div className="flex items-center justify-between">
@@ -511,6 +661,18 @@ export default function CustomerDetail() {
                 </p>
               </div>
               <Package className="w-8 h-8 text-blue-400" />
+            </div>
+          </div>
+
+          <div className="card bg-yellow-50 border-l-4 border-yellow-500">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 mb-1">Total Returns</p>
+                <p className="text-lg sm:text-xl font-bold text-yellow-600">
+                  ₦{getTotalReturns().toLocaleString()}
+                </p>
+              </div>
+              <Package className="w-8 h-8 text-yellow-400" />
             </div>
           </div>
 
@@ -559,6 +721,13 @@ export default function CustomerDetail() {
           >
             <Plus className="w-5 h-5 mr-2" />
             Create New Order
+          </button>
+          <button
+            onClick={() => setShowReturnModal(true)}
+            className="btn-primary bg-yellow-600 hover:bg-yellow-700 flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
+          >
+            <RotateCcw className="w-5 h-5 mr-2" />
+            Add Return
           </button>
           <button
             onClick={() => setShowPaymentModal(true)}
@@ -652,6 +821,79 @@ export default function CustomerDetail() {
             <p className="text-center text-gray-600 py-8 text-sm sm:text-base">No orders yet</p>
           )}
         </div>
+
+        {/* Returns List */}
+        {returns.length > 0 && (
+          <div className="card mb-4 sm:mb-6">
+            <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
+              <RotateCcw className="w-5 h-5 mr-2 text-bge-green" />
+              Returns ({returns.length})
+            </h3>
+            <div className="space-y-3">
+              {returns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((returnItem) => (
+                <div key={returnItem._id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow bg-yellow-50">
+                  {/* Return Header */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900 text-sm sm:text-base">Return #{returnItem.returnNumber}</p>
+                      <p className="text-xs sm:text-sm text-gray-600 flex items-center mt-1">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {new Date(returnItem.createdAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </p>
+                      {returnItem.reason && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          <span className="font-medium">Reason:</span> {returnItem.reason}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right mr-2">
+                        <p className="text-lg sm:text-xl font-bold text-yellow-600">
+                          -₦{returnItem.totalAmount.toLocaleString()}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleEditReturn(returnItem)}
+                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                        title="Edit Return"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReturn(returnItem._id)}
+                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                        title="Delete Return"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Products List */}
+                  <div className="bg-white rounded p-2 sm:p-3">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Returned Products:</p>
+                    <div className="space-y-1">
+                      {returnItem.products.map((product, idx) => (
+                        <div key={idx} className="text-xs sm:text-sm text-gray-600 flex justify-between gap-2">
+                          <span className="break-words flex-1">
+                            {product.name} (x{product.quantity.toLocaleString()} @ ₦{product.unitPrice.toLocaleString()})
+                          </span>
+                          <span className="font-semibold whitespace-nowrap">
+                            ₦{product.totalPrice.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Payment History */}
         {customer.payments && customer.payments.length > 0 && (
@@ -1218,6 +1460,278 @@ export default function CustomerDetail() {
                   </div>
                 </form>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Return Modal */}
+        {showReturnModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
+                <h3 className="text-lg sm:text-xl font-semibold">Add Product Return</h3>
+                <button
+                  onClick={() => {
+                    setShowReturnModal(false);
+                    setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+                    setReturnReason('');
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateReturn} className="p-4 sm:p-6">
+                <div className="mb-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <p className="text-sm text-gray-700 mb-2">
+                    <strong>Note:</strong> Adding a return will reduce the customer's debt by the return amount.
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Current Debt: <strong className="text-red-600">₦{customer.totalDebt.toLocaleString()}</strong>
+                  </p>
+                </div>
+
+                <div className="space-y-3 sm:space-y-4 mb-4">
+                  {returnProducts.map((product, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50">
+                      <div className="space-y-3">
+                        <div>
+                          <label className="label text-sm">Product Name *</label>
+                          <input
+                            type="text"
+                            value={product.name}
+                            onChange={(e) => handleReturnProductChange(index, 'name', e.target.value)}
+                            className="input-field text-sm w-full"
+                            placeholder="e.g., Bag of Rice"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="label text-sm">Quantity *</label>
+                            <input
+                              type="number"
+                              value={product.quantity}
+                              onChange={(e) => handleReturnProductChange(index, 'quantity', e.target.value)}
+                              className="input-field text-sm w-full"
+                              min="0.01"
+                              step="0.01"
+                              placeholder="0"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="label text-sm">Unit Price (₦) *</label>
+                            <input
+                              type="text"
+                              value={formatCurrency(product.unitPrice)}
+                              onChange={(e) => handleReturnProductChange(index, 'unitPrice', e.target.value.replace(/,/g, ''))}
+                              className="input-field text-sm w-full"
+                              placeholder="0"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
+                        <p className="text-sm font-medium text-gray-700">
+                          Subtotal: <span className="text-yellow-600">
+                            ₦{((parseFloat(product.quantity) || 0) * (parseFloat(product.unitPrice.toString().replace(/,/g, '')) || 0)).toLocaleString()}
+                          </span>
+                        </p>
+                        {returnProducts.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveReturnProduct(index)}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 hover:bg-red-50 rounded transition-colors"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddReturnProduct}
+                  className="text-bge-green hover:text-bge-light-green text-sm font-semibold mb-4 px-3 py-2 hover:bg-green-50 rounded transition-colors w-full sm:w-auto"
+                >
+                  + Add Another Product
+                </button>
+
+                <div className="mb-4">
+                  <label className="label text-sm">Reason for Return (Optional)</label>
+                  <textarea
+                    value={returnReason}
+                    onChange={(e) => setReturnReason(e.target.value)}
+                    className="input-field text-sm w-full"
+                    rows="3"
+                    placeholder="e.g., Damaged goods, customer changed mind, etc."
+                  />
+                </div>
+
+                <div className="border-t border-gray-200 pt-4 mb-4">
+                  <div className="flex justify-between items-center p-4 bg-yellow-50 rounded-lg">
+                    <span className="text-base sm:text-lg font-semibold">Return Total:</span>
+                    <span className="text-xl sm:text-2xl font-bold text-yellow-600">
+                      ₦{calculateReturnTotal().toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    This amount will be subtracted from customer's debt
+                  </p>
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReturnModal(false);
+                      setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+                      setReturnReason('');
+                    }}
+                    className="btn-secondary w-full sm:w-auto min-h-[48px]"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto min-h-[48px]">
+                    Add Return
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Return Modal */}
+        {showEditReturnModal && editingReturn && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
+                <h3 className="text-lg sm:text-xl font-semibold">Edit Return #{editingReturn.returnNumber}</h3>
+                <button
+                  onClick={() => {
+                    setShowEditReturnModal(false);
+                    setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+                    setReturnReason('');
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveReturn} className="p-4 sm:p-6">
+                <div className="space-y-3 sm:space-y-4 mb-4">
+                  {returnProducts.map((product, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50">
+                      <div className="space-y-3">
+                        <div>
+                          <label className="label text-sm">Product Name *</label>
+                          <input
+                            type="text"
+                            value={product.name}
+                            onChange={(e) => handleReturnProductChange(index, 'name', e.target.value)}
+                            className="input-field text-sm w-full"
+                            placeholder="e.g., Bag of Rice"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="label text-sm">Quantity *</label>
+                            <input
+                              type="number"
+                              value={product.quantity}
+                              onChange={(e) => handleReturnProductChange(index, 'quantity', e.target.value)}
+                              className="input-field text-sm w-full"
+                              min="0.01"
+                              step="0.01"
+                              placeholder="0"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="label text-sm">Unit Price (₦) *</label>
+                            <input
+                              type="text"
+                              value={formatCurrency(product.unitPrice)}
+                              onChange={(e) => handleReturnProductChange(index, 'unitPrice', e.target.value.replace(/,/g, ''))}
+                              className="input-field text-sm w-full"
+                              placeholder="0"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
+                        <p className="text-sm font-medium text-gray-700">
+                          Subtotal: <span className="text-yellow-600">
+                            ₦{((parseFloat(product.quantity) || 0) * (parseFloat(product.unitPrice.toString().replace(/,/g, '')) || 0)).toLocaleString()}
+                          </span>
+                        </p>
+                        {returnProducts.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveReturnProduct(index)}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 hover:bg-red-50 rounded transition-colors"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddReturnProduct}
+                  className="text-bge-green hover:text-bge-light-green text-sm font-semibold mb-4 px-3 py-2 hover:bg-green-50 rounded transition-colors w-full sm:w-auto"
+                >
+                  + Add Another Product
+                </button>
+
+                <div className="mb-4">
+                  <label className="label text-sm">Reason for Return (Optional)</label>
+                  <textarea
+                    value={returnReason}
+                    onChange={(e) => setReturnReason(e.target.value)}
+                    className="input-field text-sm w-full"
+                    rows="3"
+                    placeholder="e.g., Damaged goods, customer changed mind, etc."
+                  />
+                </div>
+
+                <div className="border-t border-gray-200 pt-4 mb-4">
+                  <div className="flex justify-between items-center p-4 bg-yellow-50 rounded-lg">
+                    <span className="text-base sm:text-lg font-semibold">Return Total:</span>
+                    <span className="text-xl sm:text-2xl font-bold text-yellow-600">
+                      ₦{calculateReturnTotal().toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditReturnModal(false);
+                      setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+                      setReturnReason('');
+                    }}
+                    className="btn-secondary w-full sm:w-auto min-h-[48px]"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto min-h-[48px]">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
