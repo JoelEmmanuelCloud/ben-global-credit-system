@@ -274,7 +274,7 @@ export default function CustomerDetail() {
       newProducts[index][field] = value;
 
       // Check stock availability
-      if (newProducts[index].availableStock !== null) {
+      if (newProducts[index].availableStock != null) {
         const requestedQty = parseFloat(value) || 0;
         if (requestedQty > newProducts[index].availableStock) {
           alert(`Only ${newProducts[index].availableStock.toLocaleString()} ${newProducts[index].unit} available in stock!`);
@@ -359,11 +359,6 @@ export default function CustomerDetail() {
     e.preventDefault();
 
     const amount = parseFloat(paymentAmount.toString().replace(/,/g, ''));
-    
-    if (amount > customer.totalDebt) {
-      alert(`Payment amount (₦${amount.toLocaleString()}) cannot exceed total debt (₦${customer.totalDebt.toLocaleString()})`);
-      return;
-    }
 
     try {
       const res = await fetch(`/api/customers/${id}/payment`, {
@@ -482,7 +477,7 @@ export default function CustomerDetail() {
         </div>
 
         {/* Financial Summary Cards */}
-        <div className={`grid ${hasOldBalance ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'} gap-3 sm:gap-4 mb-4 sm:mb-6`}>
+        <div className={`grid ${hasOldBalance ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'} gap-3 sm:gap-4 mb-4 sm:mb-6`}>
           {hasOldBalance && (
             <div className="card bg-orange-50 border-l-4 border-orange-500">
               <div className="flex items-center justify-between">
@@ -532,6 +527,18 @@ export default function CustomerDetail() {
               <DollarSign className="w-8 h-8 text-red-400" />
             </div>
           </div>
+
+          <div className="card bg-purple-50 border-l-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 mb-1">Wallet</p>
+                <p className="text-lg sm:text-xl font-bold text-purple-600">
+                  ₦{(customer.wallet || 0).toLocaleString()}
+                </p>
+              </div>
+              <DollarSign className="w-8 h-8 text-purple-400" />
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -543,15 +550,13 @@ export default function CustomerDetail() {
             <Plus className="w-5 h-5 mr-2" />
             Create New Order
           </button>
-          {customer.totalDebt > 0 && (
-            <button
-              onClick={() => setShowPaymentModal(true)}
-              className="btn-primary bg-green-600 hover:bg-green-700 flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
-            >
-              <DollarSign className="w-5 h-5 mr-2" />
-              Record Payment
-            </button>
-          )}
+          <button
+            onClick={() => setShowPaymentModal(true)}
+            className="btn-primary bg-green-600 hover:bg-green-700 flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
+          >
+            <DollarSign className="w-5 h-5 mr-2" />
+            Record Payment
+          </button>
           <button
             onClick={handleDownloadStatement}
             className="btn-secondary flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
@@ -707,7 +712,7 @@ export default function CustomerDetail() {
                         <div className="relative">
                           <label className="label text-sm">
                             Product Name *
-                            {product.availableStock !== null && (
+                            {product.availableStock != null && (
                               <span className="ml-2 text-xs text-green-600">
                                 ({product.availableStock.toLocaleString()} {product.unit} available)
                               </span>
@@ -773,7 +778,7 @@ export default function CustomerDetail() {
                               placeholder="0"
                               required
                             />
-                            {product.availableStock !== null && parseFloat(product.quantity) > product.availableStock && (
+                            {product.availableStock != null && parseFloat(product.quantity) > product.availableStock && (
                               <p className="text-xs text-red-600 mt-1">
                                 Exceeds available stock!
                               </p>
@@ -1097,7 +1102,7 @@ export default function CustomerDetail() {
                       required
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Maximum: ₦{customer.totalDebt.toLocaleString()}
+                      Current debt: ₦{customer.totalDebt.toLocaleString()}. Any excess will be added to wallet.
                     </p>
                   </div>
                   <div>

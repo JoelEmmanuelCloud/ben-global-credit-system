@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       const orders = await Order.find()
         .populate({
           path: 'customerId',
-          select: 'name phone email totalDebt'
+          select: 'name phone email totalDebt wallet'
         })
         .sort({ createdAt: -1 });
 
@@ -161,13 +161,23 @@ export default async function handler(req, res) {
         await update.product.save();
       }
 
-      // Update customer debt
+      // Update customer debt and wallet
       const customer = await Customer.findById(customerId);
       const allOrders = await Order.find({ customerId });
       const totalOrders = allOrders.reduce((sum, order) => sum + order.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, payment) => sum + payment.amount, 0) : 0;
-      
-      customer.totalDebt = Math.max(0, (customer.oldBalance || 0) + totalOrders - totalPaid);
+
+      // Calculate net balance: if positive, it's prepaid (wallet); if negative, it's debt
+      const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders);
+
+      if (netBalance >= 0) {
+        customer.wallet = netBalance;
+        customer.totalDebt = 0;
+      } else {
+        customer.wallet = 0;
+        customer.totalDebt = Math.abs(netBalance);
+      }
+
       await customer.save();
 
       const populatedOrder = await Order.findById(order._id).populate('customerId');

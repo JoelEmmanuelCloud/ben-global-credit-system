@@ -27,13 +27,13 @@ export default async function handler(req, res) {
         customer.oldBalance = parseFloat(oldBalance) || 0;
       }
 
-      // Recalculate totalDebt
+      // Recalculate totalDebt only (don't modify wallet during edits)
       const allOrders = await Order.find({ customerId: id });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-      
+
       customer.totalDebt = Math.max(0, (customer.oldBalance || 0) + totalOrders - totalPaid);
-      
+
       await customer.save();
 
       res.status(200).json({ success: true, customer });

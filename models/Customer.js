@@ -38,6 +38,10 @@ const CustomerSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  wallet: {
+    type: Number,
+    default: 0,
+  },
   payments: [PaymentSchema],
   createdAt: {
     type: Date,
