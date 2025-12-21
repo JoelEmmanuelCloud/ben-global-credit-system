@@ -27,22 +27,22 @@ export default async function handler(req, res) {
       const customerId = order.customerId;
       await Order.findByIdAndDelete(id);
 
-      // Recalculate customer's total debt after deletion
+      // Recalculate customer's total debt and wallet after deletion
       const customer = await Customer.findById(customerId);
       if (customer) {
         const allOrders = await Order.find({ customerId });
         const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
         const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
 
-        const calculatedDebt = (customer.oldBalance || 0) + totalOrders - totalPaid;
+        // Calculate net balance: if positive, it's prepaid (wallet); if negative, it's debt
+        const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders);
 
-        // If debt is negative after deleting order, add surplus to wallet
-        if (calculatedDebt < 0) {
-          const surplus = Math.abs(calculatedDebt);
-          customer.wallet = (customer.wallet || 0) + surplus;
+        if (netBalance >= 0) {
+          customer.wallet = netBalance;
           customer.totalDebt = 0;
         } else {
-          customer.totalDebt = calculatedDebt;
+          customer.wallet = 0;
+          customer.totalDebt = Math.abs(netBalance);
         }
 
         await customer.save();

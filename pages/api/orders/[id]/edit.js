@@ -42,28 +42,23 @@ export default async function handler(req, res) {
       order.totalAmount = newTotalAmount;
       await order.save();
 
-      // Recalculate customer's total debt and handle wallet deduction
+      // Recalculate customer's total debt and wallet
       const customer = await Customer.findById(order.customerId);
       const allOrders = await Order.find({ customerId: order.customerId });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
 
-      let calculatedDebt = Math.max(0, (customer.oldBalance || 0) + totalOrders - totalPaid);
+      // Calculate net balance: if positive, it's prepaid (wallet); if negative, it's debt
+      const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders);
 
-      // Deduct from wallet if available
-      if (customer.wallet && customer.wallet > 0 && calculatedDebt > 0) {
-        if (customer.wallet >= calculatedDebt) {
-          // Wallet can cover full debt
-          customer.wallet -= calculatedDebt;
-          calculatedDebt = 0;
-        } else {
-          // Wallet can cover partial debt
-          calculatedDebt -= customer.wallet;
-          customer.wallet = 0;
-        }
+      if (netBalance >= 0) {
+        customer.wallet = netBalance;
+        customer.totalDebt = 0;
+      } else {
+        customer.wallet = 0;
+        customer.totalDebt = Math.abs(netBalance);
       }
 
-      customer.totalDebt = calculatedDebt;
       await customer.save();
 
       const populatedOrder = await Order.findById(order._id).populate('customerId');
