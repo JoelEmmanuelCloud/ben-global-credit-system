@@ -3,6 +3,7 @@ import dbConnect from '../../../lib/mongodb';
 import Order from '../../../models/Order';
 import Customer from '../../../models/Customer';
 import Product from '../../../models/Product';
+import Return from '../../../models/Return';
 
 export default async function handler(req, res) {
   try {
@@ -168,11 +169,13 @@ export default async function handler(req, res) {
 
       // Update customer debt and wallet
       const allOrders = await Order.find({ customerId });
+      const allReturns = await Return.find({ customerId });
       const totalOrders = allOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+      const totalReturns = allReturns.reduce((sum, ret) => sum + ret.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, payment) => sum + payment.amount, 0) : 0;
 
       // Calculate net balance: if positive, it's prepaid (wallet); if negative, it's debt
-      const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders);
+      const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
 
       if (netBalance >= 0) {
         customer.wallet = netBalance;
