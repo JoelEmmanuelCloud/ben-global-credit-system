@@ -11,6 +11,7 @@ export default function CustomerDetail() {
   const { id } = router.query;
   const [customer, setCustomer] = useState(null);
   const [orders, setOrders] = useState([]);
+  const [returns, setReturns] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Product inventory states
@@ -25,6 +26,8 @@ export default function CustomerDetail() {
   const [showEditCustomerModal, setShowEditCustomerModal] = useState(false);
   const [showEditOrderModal, setShowEditOrderModal] = useState(false);
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showEditReturnModal, setShowEditReturnModal] = useState(false);
   
   // Form states
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -37,6 +40,13 @@ export default function CustomerDetail() {
   const [editingCustomer, setEditingCustomer] = useState({});
   const [editingOrder, setEditingOrder] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
+  const [editingReturn, setEditingReturn] = useState(null);
+
+  // Return form states
+  const [returnProducts, setReturnProducts] = useState([
+    { name: '', quantity: '', unitPrice: '' }
+  ]);
+  const [returnReason, setReturnReason] = useState('');
 
   useEffect(() => {
     if (id) {
