@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       const orders = await Order.find()
         .populate({
           path: 'customerId',
-          select: 'name phone email totalDebt'
+          select: 'name phone email totalDebt wallet'
         })
         .sort({ createdAt: -1 });
 
@@ -161,13 +161,28 @@ export default async function handler(req, res) {
         await update.product.save();
       }
 
-      // Update customer debt
+      // Update customer debt and handle wallet deduction
       const customer = await Customer.findById(customerId);
       const allOrders = await Order.find({ customerId });
       const totalOrders = allOrders.reduce((sum, order) => sum + order.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, payment) => sum + payment.amount, 0) : 0;
-      
-      customer.totalDebt = Math.max(0, (customer.oldBalance || 0) + totalOrders - totalPaid);
+
+      let calculatedDebt = Math.max(0, (customer.oldBalance || 0) + totalOrders - totalPaid);
+
+      // Deduct from wallet if available
+      if (customer.wallet && customer.wallet > 0 && calculatedDebt > 0) {
+        if (customer.wallet >= calculatedDebt) {
+          // Wallet can cover full debt
+          customer.wallet -= calculatedDebt;
+          calculatedDebt = 0;
+        } else {
+          // Wallet can cover partial debt
+          calculatedDebt -= customer.wallet;
+          customer.wallet = 0;
+        }
+      }
+
+      customer.totalDebt = calculatedDebt;
       await customer.save();
 
       const populatedOrder = await Order.findById(order._id).populate('customerId');

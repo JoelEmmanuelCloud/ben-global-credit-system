@@ -27,17 +27,9 @@ export default async function handler(req, res) {
         // Get customer
         const customer = await Customer.findById(id);
         if (!customer) {
-          return res.status(404).json({ 
-            success: false, 
-            message: 'Customer not found' 
-          });
-        }
-
-        // Check if payment exceeds total debt
-        if (amount > customer.totalDebt) {
-          return res.status(400).json({ 
-            success: false, 
-            message: `Payment amount (₦${amount.toLocaleString()}) cannot exceed total debt (₦${customer.totalDebt.toLocaleString()})` 
+          return res.status(404).json({
+            success: false,
+            message: 'Customer not found'
           });
         }
 
@@ -52,8 +44,17 @@ export default async function handler(req, res) {
         const allOrders = await Order.find({ customerId: id });
         const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
         const totalPaid = customer.payments.reduce((sum, p) => sum + p.amount, 0);
-        
-        customer.totalDebt = Math.max(0, (customer.oldBalance || 0) + totalOrders - totalPaid);
+
+        const calculatedDebt = (customer.oldBalance || 0) + totalOrders - totalPaid;
+
+        // If payment exceeds debt, add surplus to wallet
+        if (calculatedDebt < 0) {
+          const surplus = Math.abs(calculatedDebt);
+          customer.wallet = (customer.wallet || 0) + surplus;
+          customer.totalDebt = 0;
+        } else {
+          customer.totalDebt = calculatedDebt;
+        }
 
         await customer.save();
 
