@@ -3,6 +3,7 @@ import dbConnect from '../../../../../lib/mongodb';
 import Customer from '../../../../../models/Customer';
 import Return from '../../../../../models/Return';
 import Order from '../../../../../models/Order';
+import Product from '../../../../../models/Product';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -35,6 +36,7 @@ export default async function handler(req, res) {
         quantity: parseFloat(product.quantity),
         unitPrice: parseFloat(product.unitPrice),
         totalPrice: parseFloat(product.quantity) * parseFloat(product.unitPrice),
+        productId: product.productId || null,
       }));
 
       const totalAmount = processedProducts.reduce(
@@ -77,6 +79,41 @@ export default async function handler(req, res) {
         totalAmount,
         reason: reason || '',
       });
+
+      // Update inventory stock for returned products
+      for (const product of processedProducts) {
+        // Only update if productId is provided (inventory product)
+        if (product.productId) {
+          try {
+            const inventoryProduct = await Product.findById(product.productId);
+
+            if (inventoryProduct) {
+              const previousStock = inventoryProduct.currentStock;
+              const newStock = previousStock + product.quantity;
+
+              // Add to stock history
+              inventoryProduct.stockHistory.push({
+                type: 'addition',
+                quantity: product.quantity,
+                previousStock,
+                newStock,
+                reason: `Return ${returnNumber}`,
+                returnId: returnDoc._id,
+              });
+
+              inventoryProduct.currentStock = newStock;
+              await inventoryProduct.save();
+
+              console.log(`Stock updated for ${inventoryProduct.name}: ${previousStock} -> ${newStock}`);
+            } else {
+              console.warn(`Product with ID ${product.productId} not found in inventory`);
+            }
+          } catch (error) {
+            console.error(`Error updating inventory for product ${product.productId}:`, error);
+            // Continue processing other products even if one fails
+          }
+        }
+      }
 
       // Recalculate customer debt
       const allOrders = await Order.find({ customerId: id });
