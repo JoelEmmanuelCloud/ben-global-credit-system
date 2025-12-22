@@ -26,6 +26,10 @@ const StockHistorySchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Order',
   },
+  returnId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Return',
+  },
   date: {
     type: Date,
     default: Date.now,

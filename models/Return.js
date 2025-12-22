@@ -18,6 +18,11 @@ const ReturnProductSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    default: null,
+  },
 });
 
 const ReturnSchema = new mongoose.Schema({

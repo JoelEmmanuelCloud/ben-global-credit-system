@@ -44,9 +44,16 @@ export default function CustomerDetail() {
 
   // Return form states
   const [returnProducts, setReturnProducts] = useState([
-    { name: '', quantity: '', unitPrice: '' }
+    { name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '', purchaseHistory: [] }
   ]);
   const [returnReason, setReturnReason] = useState('');
+
+  // Return product search states
+  const [returnProductSearchTerm, setReturnProductSearchTerm] = useState('');
+  const [returnFilteredProducts, setReturnFilteredProducts] = useState([]);
+  const [showReturnProductDropdown, setShowReturnProductDropdown] = useState(false);
+  const [returnActiveIndex, setReturnActiveIndex] = useState(null);
+  const [returnValidationWarnings, setReturnValidationWarnings] = useState({});
 
   useEffect(() => {
     if (id) {
@@ -79,7 +86,8 @@ export default function CustomerDetail() {
 
   const fetchInventoryProducts = async () => {
     try {
-      const res = await fetch('/api/Product?active=true');
+      // Fetch all products (including inactive) for returns
+      const res = await fetch('/api/Product');
       const data = await res.json();
       if (data.success) {
         setAllProducts(data.products);
@@ -123,6 +131,94 @@ export default function CustomerDetail() {
     setProducts(newProducts);
     setShowProductDropdown(false);
     setProductSearchTerm('');
+  };
+
+  // Return product search and selection
+  const fetchCustomerPurchaseHistory = async (productName) => {
+    try {
+      const res = await fetch(`/api/customers/${id}/purchase-history?productName=${encodeURIComponent(productName)}`);
+      const data = await res.json();
+      if (data.success) {
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching purchase history:', error);
+      return null;
+    }
+  };
+
+  const handleReturnProductSearch = (searchValue, productIndex) => {
+    setReturnProductSearchTerm(searchValue);
+    setReturnActiveIndex(productIndex);
+
+    if (searchValue.length > 0) {
+      const filtered = allProducts.filter(product =>
+        product.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+        (product.category && product.category.toLowerCase().includes(searchValue.toLowerCase()))
+      );
+      setReturnFilteredProducts(filtered);
+      setShowReturnProductDropdown(true);
+    } else {
+      setShowReturnProductDropdown(false);
+    }
+
+    // Update the product name
+    const newProducts = [...returnProducts];
+    newProducts[productIndex].name = searchValue;
+    newProducts[productIndex].productId = null; // Clear when typing
+    newProducts[productIndex].purchaseHistory = [];
+    setReturnProducts(newProducts);
+  };
+
+  const handleSelectReturnProduct = async (product, productIndex) => {
+    const newProducts = [...returnProducts];
+    newProducts[productIndex] = {
+      ...newProducts[productIndex],
+      name: product.name,
+      unitPrice: product.unitPrice.toString(),
+      productId: product._id,
+      availableStock: product.currentStock,
+      unit: product.unit,
+    };
+    setReturnProducts(newProducts);
+    setShowReturnProductDropdown(false);
+    setReturnProductSearchTerm('');
+
+    // Fetch purchase history for validation
+    const purchaseData = await fetchCustomerPurchaseHistory(product.name);
+    if (purchaseData) {
+      newProducts[productIndex].purchaseHistory = purchaseData.purchaseHistory || [];
+      setReturnProducts([...newProducts]);
+
+      // Validate the return
+      validateReturnProduct(productIndex, purchaseData);
+    }
+  };
+
+  const validateReturnProduct = (index, purchaseData) => {
+    const newWarnings = { ...returnValidationWarnings };
+
+    if (!purchaseData || purchaseData.totalPurchased === 0) {
+      newWarnings[index] = {
+        type: 'error',
+        message: 'Customer has not purchased this product'
+      };
+    } else {
+      const returnQty = parseFloat(returnProducts[index].quantity) || 0;
+      const availableToReturn = purchaseData.availableToReturn;
+
+      if (returnQty > availableToReturn && availableToReturn >= 0) {
+        newWarnings[index] = {
+          type: 'warning',
+          message: `Return quantity exceeds purchased quantity. Customer bought ${purchaseData.totalPurchased}, returned ${purchaseData.totalReturned}, available: ${availableToReturn}`
+        };
+      } else {
+        delete newWarnings[index];
+      }
+    }
+
+    setReturnValidationWarnings(newWarnings);
   };
 
   // Customer edit/delete functions
@@ -274,7 +370,7 @@ export default function CustomerDetail() {
 
   // Return handlers
   const handleAddReturnProduct = () => {
-    setReturnProducts([...returnProducts, { name: '', quantity: '', unitPrice: '' }]);
+    setReturnProducts([...returnProducts, { name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '', purchaseHistory: [] }]);
   };
 
   const handleRemoveReturnProduct = (index) => {
@@ -282,7 +378,7 @@ export default function CustomerDetail() {
     setReturnProducts(newProducts);
   };
 
-  const handleReturnProductChange = (index, field, value) => {
+  const handleReturnProductChange = async (index, field, value) => {
     const newProducts = [...returnProducts];
     if (field === 'unitPrice') {
       const numericValue = value.replace(/,/g, '');
@@ -291,6 +387,14 @@ export default function CustomerDetail() {
       newProducts[index][field] = value;
     }
     setReturnProducts(newProducts);
+
+    // Re-validate quantity if it changed and we have purchase history
+    if (field === 'quantity' && newProducts[index].productId) {
+      const purchaseData = await fetchCustomerPurchaseHistory(newProducts[index].name);
+      if (purchaseData) {
+        validateReturnProduct(index, purchaseData);
+      }
+    }
   };
 
   const calculateReturnTotal = () => {
@@ -304,12 +408,20 @@ export default function CustomerDetail() {
   const handleCreateReturn = async (e) => {
     e.preventDefault();
 
+    // Check for error-level validation warnings
+    const hasErrors = Object.values(returnValidationWarnings).some(warning => warning.type === 'error');
+    if (hasErrors) {
+      alert('Please fix validation errors before submitting. Customers can only return products they have purchased.');
+      return;
+    }
+
     const validProducts = returnProducts
       .filter(p => p.name && p.quantity && p.unitPrice)
       .map(p => ({
         name: p.name,
         quantity: parseFloat(p.quantity),
-        unitPrice: parseFloat(p.unitPrice.toString().replace(/,/g, ''))
+        unitPrice: parseFloat(p.unitPrice.toString().replace(/,/g, '')),
+        productId: p.productId || null
       }));
 
     if (validProducts.length === 0) {
@@ -333,10 +445,12 @@ export default function CustomerDetail() {
 
       if (res.ok) {
         setShowReturnModal(false);
-        setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+        setReturnProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '', purchaseHistory: [] }]);
         setReturnReason('');
+        setReturnValidationWarnings({});
+        setShowReturnProductDropdown(false);
         fetchCustomerDetails();
-        alert('Return created successfully! Customer debt has been reduced.');
+        alert('Return created successfully! Customer debt reduced and inventory updated.');
       } else {
         alert(data.message || 'Error creating return');
       }
@@ -346,26 +460,67 @@ export default function CustomerDetail() {
     }
   };
 
-  const handleEditReturn = (returnItem) => {
+  const handleEditReturn = async (returnItem) => {
     setEditingReturn(returnItem);
-    setReturnProducts(returnItem.products.map(p => ({
-      name: p.name,
-      quantity: p.quantity.toString(),
-      unitPrice: p.unitPrice.toString()
-    })));
+
+    // Map products and fetch inventory data and purchase history
+    const mappedProducts = await Promise.all(returnItem.products.map(async (p) => {
+      const productData = {
+        name: p.name,
+        quantity: p.quantity.toString(),
+        unitPrice: p.unitPrice.toString(),
+        productId: p.productId || null,
+        availableStock: null,
+        unit: '',
+        purchaseHistory: []
+      };
+
+      // If productId exists, fetch current inventory data
+      if (p.productId) {
+        try {
+          const res = await fetch(`/api/Product/${p.productId}`);
+          const data = await res.json();
+          if (data.success && data.product) {
+            productData.availableStock = data.product.currentStock;
+            productData.unit = data.product.unit;
+          }
+
+          // Fetch purchase history for validation
+          const purchaseData = await fetchCustomerPurchaseHistory(p.name);
+          if (purchaseData) {
+            productData.purchaseHistory = purchaseData.purchaseHistory || [];
+          }
+        } catch (error) {
+          console.error('Error fetching product data:', error);
+        }
+      }
+
+      return productData;
+    }));
+
+    setReturnProducts(mappedProducts);
     setReturnReason(returnItem.reason || '');
+    setReturnValidationWarnings({});
     setShowEditReturnModal(true);
   };
 
   const handleSaveReturn = async (e) => {
     e.preventDefault();
 
+    // Check for error-level validation warnings
+    const hasErrors = Object.values(returnValidationWarnings).some(warning => warning.type === 'error');
+    if (hasErrors) {
+      alert('Please fix validation errors before submitting. Customers can only return products they have purchased.');
+      return;
+    }
+
     const validProducts = returnProducts
       .filter(p => p.name && p.quantity && p.unitPrice)
       .map(p => ({
         name: p.name,
         quantity: parseFloat(p.quantity),
-        unitPrice: parseFloat(p.unitPrice.toString().replace(/,/g, ''))
+        unitPrice: parseFloat(p.unitPrice.toString().replace(/,/g, '')),
+        productId: p.productId || null
       }));
 
     if (validProducts.length === 0) {
@@ -382,10 +537,12 @@ export default function CustomerDetail() {
 
       if (res.ok) {
         setShowEditReturnModal(false);
-        setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+        setReturnProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '', purchaseHistory: [] }]);
         setReturnReason('');
+        setReturnValidationWarnings({});
+        setShowReturnProductDropdown(false);
         fetchCustomerDetails();
-        alert('Return updated successfully!');
+        alert('Return updated successfully! Inventory has been adjusted.');
       }
     } catch (error) {
       console.error('Error updating return:', error);
@@ -394,7 +551,7 @@ export default function CustomerDetail() {
   };
 
   const handleDeleteReturn = async (returnId) => {
-    if (confirm('Are you sure you want to delete this return? This will increase the customer debt.')) {
+    if (confirm('Are you sure you want to delete this return? This will increase the customer debt and reverse inventory changes.')) {
       try {
         const res = await fetch(`/api/customers/${id}/return/${returnId}`, {
           method: 'DELETE'
@@ -402,7 +559,7 @@ export default function CustomerDetail() {
 
         if (res.ok) {
           fetchCustomerDetails();
-          alert('Return deleted successfully!');
+          alert('Return deleted successfully! Inventory has been adjusted.');
         }
       } catch (error) {
         console.error('Error deleting return:', error);
@@ -1473,8 +1630,10 @@ export default function CustomerDetail() {
                 <button
                   onClick={() => {
                     setShowReturnModal(false);
-                    setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+                    setReturnProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '', purchaseHistory: [] }]);
                     setReturnReason('');
+                    setReturnValidationWarnings({});
+                    setShowReturnProductDropdown(false);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
@@ -1496,16 +1655,77 @@ export default function CustomerDetail() {
                   {returnProducts.map((product, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50">
                       <div className="space-y-3">
-                        <div>
-                          <label className="label text-sm">Product Name *</label>
-                          <input
-                            type="text"
-                            value={product.name}
-                            onChange={(e) => handleReturnProductChange(index, 'name', e.target.value)}
-                            className="input-field text-sm w-full"
-                            placeholder="e.g., Bag of Rice"
-                            required
-                          />
+                        {/* Product Name with Search */}
+                        <div className="relative">
+                          <label className="label text-sm">
+                            Product Name *
+                            {product.availableStock != null && (
+                              <span className="ml-2 text-xs text-green-600">
+                                ({product.availableStock.toLocaleString()} {product.unit} in warehouse)
+                              </span>
+                            )}
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={product.name}
+                              onChange={(e) => handleReturnProductSearch(e.target.value, index)}
+                              onFocus={() => {
+                                if (returnFilteredProducts.length > 0) setShowReturnProductDropdown(true);
+                              }}
+                              className="input-field text-sm w-full pr-10"
+                              placeholder="Search or type product name"
+                              required
+                            />
+                            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          </div>
+
+                          {/* Product Dropdown */}
+                          {showReturnProductDropdown && returnFilteredProducts.length > 0 && returnActiveIndex === index && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {returnFilteredProducts.map((prod) => (
+                                <button
+                                  key={prod._id}
+                                  type="button"
+                                  onClick={() => handleSelectReturnProduct(prod, index)}
+                                  className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-sm font-medium text-gray-900">{prod.name}</p>
+                                        {!prod.isActive && (
+                                          <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded">Inactive</span>
+                                        )}
+                                      </div>
+                                      {prod.category && (
+                                        <p className="text-xs text-gray-500">{prod.category}</p>
+                                      )}
+                                    </div>
+                                    <div className="text-right ml-3">
+                                      <p className="text-sm font-semibold text-yellow-600">
+                                        ₦{prod.unitPrice.toLocaleString()}
+                                      </p>
+                                      <p className={`text-xs ${prod.currentStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {prod.currentStock.toLocaleString()} {prod.unit}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Validation warnings */}
+                          {returnValidationWarnings[index] && (
+                            <div className={`mt-2 p-2 rounded text-xs ${
+                              returnValidationWarnings[index].type === 'error'
+                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                            }`}>
+                              {returnValidationWarnings[index].message}
+                            </div>
+                          )}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
@@ -1590,8 +1810,10 @@ export default function CustomerDetail() {
                     type="button"
                     onClick={() => {
                       setShowReturnModal(false);
-                      setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+                      setReturnProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '', purchaseHistory: [] }]);
                       setReturnReason('');
+                      setReturnValidationWarnings({});
+                      setShowReturnProductDropdown(false);
                     }}
                     className="btn-secondary w-full sm:w-auto min-h-[48px]"
                   >
@@ -1615,8 +1837,10 @@ export default function CustomerDetail() {
                 <button
                   onClick={() => {
                     setShowEditReturnModal(false);
-                    setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+                    setReturnProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '', purchaseHistory: [] }]);
                     setReturnReason('');
+                    setReturnValidationWarnings({});
+                    setShowReturnProductDropdown(false);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
@@ -1629,16 +1853,77 @@ export default function CustomerDetail() {
                   {returnProducts.map((product, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50">
                       <div className="space-y-3">
-                        <div>
-                          <label className="label text-sm">Product Name *</label>
-                          <input
-                            type="text"
-                            value={product.name}
-                            onChange={(e) => handleReturnProductChange(index, 'name', e.target.value)}
-                            className="input-field text-sm w-full"
-                            placeholder="e.g., Bag of Rice"
-                            required
-                          />
+                        {/* Product Name with Search */}
+                        <div className="relative">
+                          <label className="label text-sm">
+                            Product Name *
+                            {product.availableStock != null && (
+                              <span className="ml-2 text-xs text-green-600">
+                                ({product.availableStock.toLocaleString()} {product.unit} in warehouse)
+                              </span>
+                            )}
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={product.name}
+                              onChange={(e) => handleReturnProductSearch(e.target.value, index)}
+                              onFocus={() => {
+                                if (returnFilteredProducts.length > 0) setShowReturnProductDropdown(true);
+                              }}
+                              className="input-field text-sm w-full pr-10"
+                              placeholder="Search or type product name"
+                              required
+                            />
+                            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          </div>
+
+                          {/* Product Dropdown */}
+                          {showReturnProductDropdown && returnFilteredProducts.length > 0 && returnActiveIndex === index && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {returnFilteredProducts.map((prod) => (
+                                <button
+                                  key={prod._id}
+                                  type="button"
+                                  onClick={() => handleSelectReturnProduct(prod, index)}
+                                  className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-sm font-medium text-gray-900">{prod.name}</p>
+                                        {!prod.isActive && (
+                                          <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded">Inactive</span>
+                                        )}
+                                      </div>
+                                      {prod.category && (
+                                        <p className="text-xs text-gray-500">{prod.category}</p>
+                                      )}
+                                    </div>
+                                    <div className="text-right ml-3">
+                                      <p className="text-sm font-semibold text-yellow-600">
+                                        ₦{prod.unitPrice.toLocaleString()}
+                                      </p>
+                                      <p className={`text-xs ${prod.currentStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {prod.currentStock.toLocaleString()} {prod.unit}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Validation warnings */}
+                          {returnValidationWarnings[index] && (
+                            <div className={`mt-2 p-2 rounded text-xs ${
+                              returnValidationWarnings[index].type === 'error'
+                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                            }`}>
+                              {returnValidationWarnings[index].message}
+                            </div>
+                          )}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
@@ -1720,8 +2005,10 @@ export default function CustomerDetail() {
                     type="button"
                     onClick={() => {
                       setShowEditReturnModal(false);
-                      setReturnProducts([{ name: '', quantity: '', unitPrice: '' }]);
+                      setReturnProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '', purchaseHistory: [] }]);
                       setReturnReason('');
+                      setReturnValidationWarnings({});
+                      setShowReturnProductDropdown(false);
                     }}
                     className="btn-secondary w-full sm:w-auto min-h-[48px]"
                   >
