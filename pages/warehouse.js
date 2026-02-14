@@ -1,7 +1,7 @@
 //page/warehouse.js
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Search, Plus, Package, AlertTriangle, Edit, Trash2, X, TrendingUp, TrendingDown, History } from 'lucide-react';
+import { Search, Plus, Package, AlertTriangle, Edit, Trash2, X, TrendingUp, TrendingDown, History, Users } from 'lucide-react';
 import Head from 'next/head';
 
 export default function Warehouse() {
@@ -13,6 +13,9 @@ export default function Warehouse() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showPurchaseHistoryModal, setShowPurchaseHistoryModal] = useState(false);
+  const [purchaseHistory, setPurchaseHistory] = useState(null);
+  const [purchaseHistoryLoading, setPurchaseHistoryLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Form states
@@ -192,6 +195,23 @@ export default function Warehouse() {
   const openHistoryModal = (product) => {
     setSelectedProduct(product);
     setShowHistoryModal(true);
+  };
+
+  const openPurchaseHistoryModal = async (product) => {
+    setSelectedProduct(product);
+    setShowPurchaseHistoryModal(true);
+    setPurchaseHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/Product/${product._id}/purchases`);
+      const data = await res.json();
+      if (data.success) {
+        setPurchaseHistory(data);
+      }
+    } catch (error) {
+      console.error('Error fetching purchase history:', error);
+    } finally {
+      setPurchaseHistoryLoading(false);
+    }
   };
 
   const resetForm = () => {
@@ -374,6 +394,13 @@ export default function Warehouse() {
                                 <History className="w-4 h-4" />
                               </button>
                               <button
+                                onClick={() => openPurchaseHistoryModal(product)}
+                                className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded"
+                                title="Purchase History"
+                              >
+                                <Users className="w-4 h-4" />
+                              </button>
+                              <button
                                 onClick={() => openEditModal(product)}
                                 className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                                 title="Edit"
@@ -444,6 +471,12 @@ export default function Warehouse() {
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded"
                       >
                         <History className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => openPurchaseHistoryModal(product)}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded"
+                      >
+                        <Users className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => openEditModal(product)}
@@ -899,6 +932,94 @@ export default function Warehouse() {
                   <div className="text-center py-12">
                     <History className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-600">No stock history yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Purchase History Modal */}
+        {showPurchaseHistoryModal && selectedProduct && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
+                <h3 className="text-xl font-semibold">Purchase History</h3>
+                <button
+                  onClick={() => {
+                    setShowPurchaseHistoryModal(false);
+                    setPurchaseHistory(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-gray-600">Product</p>
+                  <p className="text-lg font-semibold text-gray-900">{selectedProduct.name}</p>
+                  {purchaseHistory && (
+                    <div className="grid grid-cols-3 gap-4 mt-3 pt-3 border-t">
+                      <div>
+                        <p className="text-xs text-gray-500">Total Orders</p>
+                        <p className="text-lg font-bold text-blue-600">{purchaseHistory.totalOrders}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Total Qty Sold</p>
+                        <p className="text-lg font-bold text-green-600">{purchaseHistory.totalQuantitySold.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Total Revenue</p>
+                        <p className="text-lg font-bold text-purple-600">₦{purchaseHistory.totalRevenue.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {purchaseHistoryLoading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-pulse text-gray-600">Loading purchase history...</div>
+                  </div>
+                ) : purchaseHistory && purchaseHistory.purchases.length > 0 ? (
+                  <div className="space-y-3">
+                    {purchaseHistory.purchases.map((purchase, idx) => (
+                      <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-semibold text-gray-900">{purchase.customerName}</p>
+                            <p className="text-xs text-gray-500">{purchase.customerPhone}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-700">{purchase.orderNumber}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(purchase.orderDate).toLocaleDateString('en-GB', {
+                                day: '2-digit', month: 'short', year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t">
+                          <div>
+                            <p className="text-gray-500">Quantity</p>
+                            <p className="font-semibold">{purchase.quantity.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Unit Price</p>
+                            <p className="font-semibold">₦{purchase.unitPrice.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Total</p>
+                            <p className="font-semibold text-green-600">₦{purchase.totalPrice.toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-600">No purchase records found</p>
                   </div>
                 )}
               </div>
