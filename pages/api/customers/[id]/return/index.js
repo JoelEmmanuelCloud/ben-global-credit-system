@@ -70,7 +70,77 @@ export default async function handler(req, res) {
         throw new Error('Failed to generate unique return number');
       }
 
-      // Create return
+      // Update inventory stock for returned products BEFORE creating the return record
+      // This ensures inventory is updated first; if it fails, no orphaned return is created
+      const inventoryUpdates = []; // Track updates for rollback if needed
+      const inventoryFailures = [];
+
+      for (const product of processedProducts) {
+        if (product.productId) {
+          try {
+            const inventoryProduct = await Product.findById(product.productId);
+
+            if (inventoryProduct) {
+              const previousStock = inventoryProduct.currentStock;
+              const newStock = previousStock + product.quantity;
+
+              inventoryProduct.stockHistory.push({
+                type: 'addition',
+                quantity: product.quantity,
+                previousStock,
+                newStock,
+                reason: `Return ${returnNumber}`,
+              });
+
+              inventoryProduct.currentStock = newStock;
+              await inventoryProduct.save();
+
+              inventoryUpdates.push({ productId: product.productId, quantity: product.quantity, productName: inventoryProduct.name });
+              console.log(`Stock updated for ${inventoryProduct.name}: ${previousStock} -> ${newStock}`);
+            } else {
+              inventoryFailures.push(`Product "${product.name}" (ID: ${product.productId}) not found in inventory`);
+              console.warn(`Product with ID ${product.productId} not found in inventory`);
+            }
+          } catch (error) {
+            inventoryFailures.push(`Failed to update inventory for "${product.name}": ${error.message}`);
+            console.error(`Error updating inventory for product ${product.productId}:`, error);
+          }
+        }
+      }
+
+      // If any inventory updates with a productId failed, rollback successful ones and abort
+      if (inventoryFailures.length > 0) {
+        // Rollback successful inventory updates
+        for (const update of inventoryUpdates) {
+          try {
+            const inventoryProduct = await Product.findById(update.productId);
+            if (inventoryProduct) {
+              const previousStock = inventoryProduct.currentStock;
+              const newStock = Math.max(0, previousStock - update.quantity);
+
+              inventoryProduct.stockHistory.push({
+                type: 'deduction',
+                quantity: update.quantity,
+                previousStock,
+                newStock,
+                reason: `Return ${returnNumber} rolled back due to inventory error`,
+              });
+
+              inventoryProduct.currentStock = newStock;
+              await inventoryProduct.save();
+            }
+          } catch (rollbackError) {
+            console.error(`Error rolling back inventory for product ${update.productId}:`, rollbackError);
+          }
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: `Inventory update failed. Return was not created. Issues: ${inventoryFailures.join('; ')}`
+        });
+      }
+
+      // Create return only after inventory is successfully updated
       const returnDoc = await Return.create({
         customerId: id,
         orderId: orderId || null,
@@ -80,38 +150,20 @@ export default async function handler(req, res) {
         reason: reason || '',
       });
 
-      // Update inventory stock for returned products
-      for (const product of processedProducts) {
-        // Only update if productId is provided (inventory product)
-        if (product.productId) {
-          try {
-            const inventoryProduct = await Product.findById(product.productId);
-
-            if (inventoryProduct) {
-              const previousStock = inventoryProduct.currentStock;
-              const newStock = previousStock + product.quantity;
-
-              // Add to stock history
-              inventoryProduct.stockHistory.push({
-                type: 'addition',
-                quantity: product.quantity,
-                previousStock,
-                newStock,
-                reason: `Return ${returnNumber}`,
-                returnId: returnDoc._id,
-              });
-
-              inventoryProduct.currentStock = newStock;
+      // Update returnId in stock history entries
+      for (const update of inventoryUpdates) {
+        try {
+          const inventoryProduct = await Product.findById(update.productId);
+          if (inventoryProduct) {
+            const lastEntry = inventoryProduct.stockHistory[inventoryProduct.stockHistory.length - 1];
+            if (lastEntry && lastEntry.reason === `Return ${returnNumber}`) {
+              lastEntry.returnId = returnDoc._id;
               await inventoryProduct.save();
-
-              console.log(`Stock updated for ${inventoryProduct.name}: ${previousStock} -> ${newStock}`);
-            } else {
-              console.warn(`Product with ID ${product.productId} not found in inventory`);
             }
-          } catch (error) {
-            console.error(`Error updating inventory for product ${product.productId}:`, error);
-            // Continue processing other products even if one fails
           }
+        } catch (error) {
+          // Non-critical: returnId reference in history is nice-to-have
+          console.error(`Error updating returnId in stock history:`, error);
         }
       }
 

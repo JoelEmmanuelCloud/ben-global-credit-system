@@ -429,6 +429,19 @@ export default function CustomerDetail() {
       return;
     }
 
+    // Warn if any products are missing productId (won't update inventory)
+    const productsWithoutId = validProducts.filter(p => !p.productId);
+    if (productsWithoutId.length > 0) {
+      const names = productsWithoutId.map(p => p.name).join(', ');
+      const proceed = confirm(
+        `The following products were not selected from the inventory dropdown: ${names}\n\n` +
+        'Their stock will NOT be updated in the warehouse inventory.\n\n' +
+        'Please go back and select products from the dropdown to ensure inventory is updated.\n\n' +
+        'Do you want to continue anyway?'
+      );
+      if (!proceed) return;
+    }
+
     try {
       const res = await fetch(`/api/customers/${id}/return`, {
         method: 'POST',
@@ -526,6 +539,19 @@ export default function CustomerDetail() {
     if (validProducts.length === 0) {
       alert('Please add at least one valid product');
       return;
+    }
+
+    // Warn if any products are missing productId (won't update inventory)
+    const productsWithoutId = validProducts.filter(p => !p.productId);
+    if (productsWithoutId.length > 0) {
+      const names = productsWithoutId.map(p => p.name).join(', ');
+      const proceed = confirm(
+        `The following products were not selected from the inventory dropdown: ${names}\n\n` +
+        'Their stock will NOT be updated in the warehouse inventory.\n\n' +
+        'Please go back and select products from the dropdown to ensure inventory is updated.\n\n' +
+        'Do you want to continue anyway?'
+      );
+      if (!proceed) return;
     }
 
     try {

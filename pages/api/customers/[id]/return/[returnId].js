@@ -109,6 +109,11 @@ export default async function handler(req, res) {
       );
 
       // INVENTORY ADJUSTMENT: Reverse old stock additions and apply new ones
+      // Track all changes for rollback if any step fails
+      const reversalsDone = [];
+      const additionsDone = [];
+      const inventoryFailures = [];
+
       // First, reverse the old stock additions
       for (const oldProduct of oldProducts) {
         if (oldProduct.productId) {
@@ -116,7 +121,7 @@ export default async function handler(req, res) {
             const inventoryProduct = await Product.findById(oldProduct.productId);
             if (inventoryProduct) {
               const previousStock = inventoryProduct.currentStock;
-              const newStock = Math.max(0, previousStock - oldProduct.quantity); // Reverse the addition
+              const newStock = Math.max(0, previousStock - oldProduct.quantity);
 
               inventoryProduct.stockHistory.push({
                 type: 'deduction',
@@ -130,12 +135,41 @@ export default async function handler(req, res) {
               inventoryProduct.currentStock = newStock;
               await inventoryProduct.save();
 
+              reversalsDone.push({ productId: oldProduct.productId, quantity: oldProduct.quantity });
               console.log(`Reversed stock for ${inventoryProduct.name}: ${previousStock} -> ${newStock}`);
             }
           } catch (error) {
+            inventoryFailures.push(`Failed to reverse stock for "${oldProduct.name}": ${error.message}`);
             console.error(`Error reversing stock for product ${oldProduct.productId}:`, error);
           }
         }
+      }
+
+      // If reversals failed, undo any successful reversals and abort
+      if (inventoryFailures.length > 0) {
+        for (const rev of reversalsDone) {
+          try {
+            const inventoryProduct = await Product.findById(rev.productId);
+            if (inventoryProduct) {
+              inventoryProduct.currentStock += rev.quantity;
+              inventoryProduct.stockHistory.push({
+                type: 'addition',
+                quantity: rev.quantity,
+                previousStock: inventoryProduct.currentStock - rev.quantity,
+                newStock: inventoryProduct.currentStock,
+                reason: `Return ${returnDoc.returnNumber} edit rollback`,
+                returnId: returnDoc._id,
+              });
+              await inventoryProduct.save();
+            }
+          } catch (e) {
+            console.error(`Error rolling back reversal:`, e);
+          }
+        }
+        return res.status(400).json({
+          success: false,
+          message: `Inventory update failed. Return was not modified. Issues: ${inventoryFailures.join('; ')}`
+        });
       }
 
       // Then, apply the new stock additions
@@ -159,15 +193,65 @@ export default async function handler(req, res) {
               inventoryProduct.currentStock = newStock;
               await inventoryProduct.save();
 
+              additionsDone.push({ productId: newProduct.productId, quantity: newProduct.quantity });
               console.log(`Added stock for ${inventoryProduct.name}: ${previousStock} -> ${newStock}`);
             }
           } catch (error) {
+            inventoryFailures.push(`Failed to add stock for "${newProduct.name}": ${error.message}`);
             console.error(`Error adding stock for product ${newProduct.productId}:`, error);
           }
         }
       }
 
-      // Update return
+      // If additions failed, rollback additions and re-apply old reversals, then abort
+      if (inventoryFailures.length > 0) {
+        // Undo successful additions
+        for (const add of additionsDone) {
+          try {
+            const inventoryProduct = await Product.findById(add.productId);
+            if (inventoryProduct) {
+              inventoryProduct.currentStock = Math.max(0, inventoryProduct.currentStock - add.quantity);
+              inventoryProduct.stockHistory.push({
+                type: 'deduction',
+                quantity: add.quantity,
+                previousStock: inventoryProduct.currentStock + add.quantity,
+                newStock: inventoryProduct.currentStock,
+                reason: `Return ${returnDoc.returnNumber} edit rollback`,
+                returnId: returnDoc._id,
+              });
+              await inventoryProduct.save();
+            }
+          } catch (e) {
+            console.error(`Error rolling back addition:`, e);
+          }
+        }
+        // Re-apply old stock (undo reversals)
+        for (const rev of reversalsDone) {
+          try {
+            const inventoryProduct = await Product.findById(rev.productId);
+            if (inventoryProduct) {
+              inventoryProduct.currentStock += rev.quantity;
+              inventoryProduct.stockHistory.push({
+                type: 'addition',
+                quantity: rev.quantity,
+                previousStock: inventoryProduct.currentStock - rev.quantity,
+                newStock: inventoryProduct.currentStock,
+                reason: `Return ${returnDoc.returnNumber} edit rollback`,
+                returnId: returnDoc._id,
+              });
+              await inventoryProduct.save();
+            }
+          } catch (e) {
+            console.error(`Error rolling back reversal:`, e);
+          }
+        }
+        return res.status(400).json({
+          success: false,
+          message: `Inventory update failed. Return was not modified. Issues: ${inventoryFailures.join('; ')}`
+        });
+      }
+
+      // Update return only after all inventory changes succeeded
       returnDoc.products = processedProducts;
       returnDoc.totalAmount = totalAmount;
       returnDoc.reason = reason || '';
