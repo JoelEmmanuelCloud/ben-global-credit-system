@@ -107,11 +107,12 @@ function OrderCard({ order }) {
   const [open, setOpen] = useState(false);
   const fmt = (n) => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
 
+  const status = order.status || 'unpaid';
   const statusStyle = {
     paid: 'bg-green-100 text-green-700',
     partial: 'bg-yellow-100 text-yellow-700',
     unpaid: 'bg-red-100 text-red-700',
-  }[order.status] || 'bg-gray-100 text-gray-600';
+  }[status] || 'bg-gray-100 text-gray-600';
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
@@ -129,7 +130,7 @@ function OrderCard({ order }) {
           <div className="text-right">
             <p className="text-sm font-semibold text-gray-900">{fmt(order.totalAmount)}</p>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusStyle}`}>
-              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+              {status.charAt(0).toUpperCase() + status.slice(1)}
             </span>
           </div>
           {open ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
