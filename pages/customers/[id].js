@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search, Filter } from 'lucide-react';
 import Head from 'next/head';
 import { downloadCustomerReceipt } from '../../lib/pdfGenerator';
 import { useToast, useConfirm } from '../../components/Notifications';
@@ -28,6 +28,18 @@ export default function CustomerDetail() {
   const [showEditCustomerModal, setShowEditCustomerModal] = useState(false);
   const [showEditOrderModal, setShowEditOrderModal] = useState(false);
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [showStatementModal, setShowStatementModal] = useState(false);
+
+  // Statement filter state
+  const now = new Date();
+  const [statementFilter, setStatementFilter] = useState({
+    type: 'all',
+    month: now.getMonth().toString(),
+    year: now.getFullYear().toString(),
+    weekDate: now.toISOString().split('T')[0],
+    startDate: '',
+    endDate: '',
+  });
   
   // Form states
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -400,8 +412,72 @@ export default function CustomerDetail() {
     }
   };
 
+  const getStatementDateRange = () => {
+    const { type, month, year, weekDate, startDate, endDate } = statementFilter;
+    switch (type) {
+      case 'month': {
+        const m = parseInt(month);
+        const y = parseInt(year);
+        const start = new Date(y, m, 1);
+        const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+        const monthName = new Date(y, m).toLocaleString('en-GB', { month: 'long' });
+        return { start, end, label: `${monthName} ${y}` };
+      }
+      case 'year': {
+        const y = parseInt(year);
+        const start = new Date(y, 0, 1);
+        const end = new Date(y, 11, 31, 23, 59, 59, 999);
+        return { start, end, label: `Year ${y}` };
+      }
+      case 'week': {
+        const d = new Date(weekDate);
+        const dayOfWeek = d.getDay();
+        const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(d);
+        monday.setDate(d.getDate() + diffToMon);
+        monday.setHours(0, 0, 0, 0);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        return {
+          start: monday,
+          end: sunday,
+          label: `Week: ${monday.toLocaleDateString('en-GB')} – ${sunday.toLocaleDateString('en-GB')}`,
+        };
+      }
+      case 'custom': {
+        const start = startDate ? new Date(startDate + 'T00:00:00') : null;
+        const end = endDate ? new Date(endDate + 'T23:59:59') : null;
+        const startStr = startDate ? new Date(startDate).toLocaleDateString('en-GB') : 'Start';
+        const endStr = endDate ? new Date(endDate).toLocaleDateString('en-GB') : 'Today';
+        return { start, end, label: `${startStr} to ${endStr}` };
+      }
+      default:
+        return { start: null, end: null, label: 'All Time' };
+    }
+  };
+
+  const getFilteredStatementData = () => {
+    const { start, end, label } = getStatementDateRange();
+    if (!start && !end) {
+      return { filteredOrders: orders, filteredPayments: customer.payments || [], label: 'All Time' };
+    }
+    const filteredOrders = orders.filter(o => {
+      const d = new Date(o.createdAt);
+      return (!start || d >= start) && (!end || d <= end);
+    });
+    const filteredPayments = (customer.payments || []).filter(p => {
+      const d = new Date(p.date);
+      return (!start || d >= start) && (!end || d <= end);
+    });
+    return { filteredOrders, filteredPayments, label };
+  };
+
   const handleDownloadStatement = () => {
-    downloadCustomerReceipt(customer, orders);
+    const { filteredOrders, filteredPayments, label } = getFilteredStatementData();
+    const customerForStatement = { ...customer, payments: filteredPayments };
+    downloadCustomerReceipt(customerForStatement, filteredOrders, { periodLabel: label });
+    setShowStatementModal(false);
   };
 
   const getTotalOrders = () => {
@@ -569,7 +645,7 @@ export default function CustomerDetail() {
             Record Payment
           </button>
           <button
-            onClick={handleDownloadStatement}
+            onClick={() => setShowStatementModal(true)}
             className="btn-secondary flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
           >
             <Download className="w-5 h-5 mr-2" />
@@ -1222,6 +1298,213 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
+
+        {/* ── Statement Filter Modal ── */}
+        {showStatementModal && (() => {
+          const months = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December',
+          ];
+          const currentYear = new Date().getFullYear();
+          const years = Array.from({ length: currentYear - 2019 }, (_, i) => currentYear - i);
+
+          const filterTypes = [
+            { value: 'all', label: 'All Time' },
+            { value: 'month', label: 'By Month' },
+            { value: 'year', label: 'By Year' },
+            { value: 'week', label: 'By Week' },
+            { value: 'custom', label: 'Custom Range' },
+          ];
+
+          const { filteredOrders, filteredPayments } = getFilteredStatementData();
+          const orderCount = filteredOrders.length;
+          const paymentCount = filteredPayments.length;
+          const orderTotal = filteredOrders.reduce((s, o) => s + o.totalAmount, 0);
+          const paymentTotal = filteredPayments.reduce((s, p) => s + p.amount, 0);
+
+          return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-5 h-5 text-bge-green" />
+                    <h2 className="text-lg font-bold text-gray-900">Download Statement</h2>
+                  </div>
+                  <button
+                    onClick={() => setShowStatementModal(false)}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  {/* Filter type pills */}
+                  <div>
+                    <label className="label mb-2">Select Period</label>
+                    <div className="flex flex-wrap gap-2">
+                      {filterTypes.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setStatementFilter({ ...statementFilter, type: opt.value })}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                            statementFilter.type === opt.value
+                              ? 'bg-bge-green text-white border-bge-green'
+                              : 'bg-white text-gray-600 border-gray-300 hover:border-bge-green hover:text-bge-green'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Month + Year selectors */}
+                  {statementFilter.type === 'month' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="label">Month</label>
+                        <select
+                          className="input-field"
+                          value={statementFilter.month}
+                          onChange={e => setStatementFilter({ ...statementFilter, month: e.target.value })}
+                        >
+                          {months.map((m, i) => (
+                            <option key={i} value={i.toString()}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Year</label>
+                        <select
+                          className="input-field"
+                          value={statementFilter.year}
+                          onChange={e => setStatementFilter({ ...statementFilter, year: e.target.value })}
+                        >
+                          {years.map(y => (
+                            <option key={y} value={y.toString()}>{y}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Year only */}
+                  {statementFilter.type === 'year' && (
+                    <div>
+                      <label className="label">Year</label>
+                      <select
+                        className="input-field"
+                        value={statementFilter.year}
+                        onChange={e => setStatementFilter({ ...statementFilter, year: e.target.value })}
+                      >
+                        {years.map(y => (
+                          <option key={y} value={y.toString()}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Week — pick any date in the desired week */}
+                  {statementFilter.type === 'week' && (
+                    <div>
+                      <label className="label">Pick any date in the week</label>
+                      <input
+                        type="date"
+                        className="input-field"
+                        value={statementFilter.weekDate}
+                        onChange={e => setStatementFilter({ ...statementFilter, weekDate: e.target.value })}
+                      />
+                      {statementFilter.weekDate && (() => {
+                        const d = new Date(statementFilter.weekDate);
+                        const dayOfWeek = d.getDay();
+                        const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                        const monday = new Date(d);
+                        monday.setDate(d.getDate() + diffToMon);
+                        const sunday = new Date(monday);
+                        sunday.setDate(monday.getDate() + 6);
+                        return (
+                          <p className="mt-1 text-xs text-gray-500">
+                            Week: {monday.toLocaleDateString('en-GB')} – {sunday.toLocaleDateString('en-GB')}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Custom date range */}
+                  {statementFilter.type === 'custom' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="label">From</label>
+                        <input
+                          type="date"
+                          className="input-field"
+                          value={statementFilter.startDate}
+                          onChange={e => setStatementFilter({ ...statementFilter, startDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">To</label>
+                        <input
+                          type="date"
+                          className="input-field"
+                          value={statementFilter.endDate}
+                          onChange={e => setStatementFilter({ ...statementFilter, endDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Live preview */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
+                    <p className="font-semibold text-gray-700 mb-2">Preview</p>
+                    <div className="space-y-1 text-gray-600">
+                      <div className="flex justify-between">
+                        <span>Orders found:</span>
+                        <span className="font-semibold text-gray-900">{orderCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Order total:</span>
+                        <span className="font-semibold text-gray-900">₦{orderTotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Payments found:</span>
+                        <span className="font-semibold text-gray-900">{paymentCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Amount paid:</span>
+                        <span className="font-semibold text-green-700">₦{paymentTotal.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    {orderCount === 0 && paymentCount === 0 && statementFilter.type !== 'all' && (
+                      <p className="mt-2 text-yellow-700 text-xs font-medium">No records found for this period.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-200">
+                  <button
+                    onClick={() => setShowStatementModal(false)}
+                    className="btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDownloadStatement}
+                    className="btn-primary flex items-center gap-2"
+                    disabled={orderCount === 0 && paymentCount === 0 && statementFilter.type !== 'all'}
+                  >
+                    <Download className="w-4 h-4" />
+                    Download PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </Layout>
     </>
   );
