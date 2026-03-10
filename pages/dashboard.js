@@ -1,4 +1,3 @@
-// pages/dashboard.js
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -52,9 +51,7 @@ export default function Dashboard() {
         <title>Dashboard - BGE Credit Management</title>
       </Head>
       <Layout title="Dashboard">
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-          {/* Total Customers */}
           <div className="card bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
@@ -65,7 +62,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Total Orders */}
           <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
@@ -76,7 +72,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Total Debt */}
           <div className="card bg-gradient-to-br from-red-500 to-red-600 text-white hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
@@ -87,7 +82,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Customers with Debt */}
           <div className="card bg-gradient-to-br from-orange-500 to-orange-600 text-white hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
@@ -99,9 +93,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Order Status Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-          {/* Unpaid Orders */}
           <div className="card bg-red-50 border-l-4 border-red-500 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -113,8 +105,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          
-          {/* Partial Payments */}
+
           <div className="card bg-yellow-50 border-l-4 border-yellow-500 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -126,8 +117,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          
-          {/* Paid Orders */}
+
           <div className="card bg-green-50 border-l-4 border-green-500 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -141,7 +131,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Monthly Debt Chart */}
         <div className="card mb-6 md:mb-8">
           <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
             Monthly Credit Issued <span className="text-sm font-normal text-gray-500">(Last 12 Months)</span>
@@ -183,7 +172,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Top Debtors */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg sm:text-xl font-semibold text-gray-800">Top Debtors</h3>
@@ -194,7 +182,6 @@ export default function Dashboard() {
           
           {customers && customers.length > 0 ? (
             <>
-              {/* Desktop Table View */}
               <div className="hidden sm:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -245,7 +232,6 @@ export default function Dashboard() {
                 </table>
               </div>
 
-              {/* Mobile Card View */}
               <div className="sm:hidden space-y-3">
                 {customers.slice(0, 10).map((customer, index) => (
                   <div

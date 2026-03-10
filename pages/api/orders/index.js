@@ -1,4 +1,3 @@
-// pages/api/orders/index.js
 import dbConnect from '../../../lib/mongodb';
 import Order from '../../../models/Order';
 import Customer from '../../../models/Customer';
@@ -29,7 +28,6 @@ export default async function handler(req, res) {
 
       console.log(`Found ${orders.length} orders`);
 
-      // Filter out orders with deleted customers
       const validOrders = orders.filter(order => order.customerId != null);
 
       console.log(`Returning ${validOrders.length} valid orders`);
@@ -49,33 +47,29 @@ export default async function handler(req, res) {
       const { customerId, products } = req.body;
 
       if (!customerId || !products || products.length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Customer and products are required' 
+        return res.status(400).json({
+          success: false,
+          message: 'Customer and products are required'
         });
       }
 
-      // Validate and check stock for each product
       const processedProducts = [];
       const stockUpdates = [];
 
       for (const item of products) {
-        // Try to find product in inventory
-        const inventoryProduct = await Product.findOne({ 
+        const inventoryProduct = await Product.findOne({
           name: { $regex: new RegExp(`^${item.name}$`, 'i') },
-          isActive: true 
+          isActive: true
         });
 
         if (inventoryProduct) {
-          // Check if enough stock is available
           if (inventoryProduct.currentStock < item.quantity) {
-            return res.status(400).json({ 
-              success: false, 
-              message: `Insufficient stock for ${item.name}. Available: ${inventoryProduct.currentStock} ${inventoryProduct.unit}, Requested: ${item.quantity} ${inventoryProduct.unit}` 
+            return res.status(400).json({
+              success: false,
+              message: `Insufficient stock for ${item.name}. Available: ${inventoryProduct.currentStock} ${inventoryProduct.unit}, Requested: ${item.quantity} ${inventoryProduct.unit}`
             });
           }
 
-          // Use inventory price if unitPrice not provided
           const unitPrice = item.unitPrice || inventoryProduct.unitPrice;
 
           processedProducts.push({
@@ -85,13 +79,11 @@ export default async function handler(req, res) {
             totalPrice: item.quantity * unitPrice,
           });
 
-          // Prepare stock update
           stockUpdates.push({
             product: inventoryProduct,
             quantity: item.quantity,
           });
         } else {
-          // Product not in inventory - allow manual entry
           processedProducts.push({
             name: item.name,
             quantity: item.quantity,
@@ -106,25 +98,20 @@ export default async function handler(req, res) {
         0
       );
 
-      // Generate unique order number
       let orderNumber;
       let isUnique = false;
       let attemptCount = 0;
 
       while (!isUnique && attemptCount < 10) {
-        // Get the latest order to find the highest order number
         const latestOrder = await Order.findOne().sort({ createdAt: -1 }).select('orderNumber');
 
         if (latestOrder && latestOrder.orderNumber) {
-          // Extract number from format "ORD-00275"
           const lastNumber = parseInt(latestOrder.orderNumber.split('-')[1]);
           orderNumber = `ORD-${String(lastNumber + 1).padStart(5, '0')}`;
         } else {
-          // First order
           orderNumber = 'ORD-00001';
         }
 
-        // Check if this order number already exists
         const existingOrder = await Order.findOne({ orderNumber });
         if (!existingOrder) {
           isUnique = true;
@@ -136,20 +123,17 @@ export default async function handler(req, res) {
         throw new Error('Failed to generate unique order number');
       }
 
-      // Get customer's wallet balance before creating order
       const customer = await Customer.findById(customerId);
       const walletBeforeOrder = customer.wallet || 0;
 
-      // Create order
       const order = await Order.create({
         customerId,
         orderNumber,
         products: processedProducts,
         totalAmount,
-        walletUsed: 0, // Will be updated below
+        walletUsed: 0,
       });
 
-      // Update inventory stock
       for (const update of stockUpdates) {
         const previousStock = update.product.currentStock;
         const newStock = previousStock - update.quantity;
@@ -167,14 +151,12 @@ export default async function handler(req, res) {
         await update.product.save();
       }
 
-      // Update customer debt and wallet
       const allOrders = await Order.find({ customerId });
       const allReturns = await Return.find({ customerId });
       const totalOrders = allOrders.reduce((sum, order) => sum + order.totalAmount, 0);
       const totalReturns = allReturns.reduce((sum, ret) => sum + ret.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, payment) => sum + payment.amount, 0) : 0;
 
-      // Calculate net balance: if positive, it's prepaid (wallet); if negative, it's debt
       const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
 
       if (netBalance >= 0) {
@@ -185,11 +167,9 @@ export default async function handler(req, res) {
         customer.totalDebt = Math.abs(netBalance);
       }
 
-      // Calculate how much wallet was used for this order
       const walletAfterOrder = customer.wallet || 0;
       const walletUsedForOrder = Math.max(0, walletBeforeOrder - walletAfterOrder);
 
-      // Update the order with wallet used amount
       order.walletUsed = walletUsedForOrder;
       await order.save();
 

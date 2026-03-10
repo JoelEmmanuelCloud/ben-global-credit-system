@@ -1,4 +1,3 @@
-//models/Return.js
 import mongoose from 'mongoose';
 
 const ReturnProductSchema = new mongoose.Schema({

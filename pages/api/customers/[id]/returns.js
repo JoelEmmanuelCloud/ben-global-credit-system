@@ -1,4 +1,3 @@
-// api/customers/[id]/returns.js
 import dbConnect from '../../../../lib/mongodb';
 import Return from '../../../../models/Return';
 

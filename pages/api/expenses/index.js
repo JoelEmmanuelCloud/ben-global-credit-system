@@ -11,7 +11,6 @@ export default async function handler(req, res) {
         const { startDate, endDate, category, search } = req.query;
         let query = {};
 
-        // Date range filter
         if (startDate || endDate) {
           query.date = {};
           if (startDate) query.date.$gte = new Date(startDate);
@@ -22,12 +21,10 @@ export default async function handler(req, res) {
           }
         }
 
-        // Category filter
         if (category && category !== 'all') {
           query.category = category;
         }
 
-        // Search filter
         if (search) {
           query.$or = [
             { description: { $regex: search, $options: 'i' } },
@@ -38,7 +35,6 @@ export default async function handler(req, res) {
 
         const expenses = await Expense.find(query).sort({ date: -1 });
 
-        // Calculate totals
         const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalVat = expenses.reduce((sum, exp) => sum + (exp.vatAmount || 0), 0);
 

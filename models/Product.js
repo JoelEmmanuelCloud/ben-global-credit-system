@@ -1,4 +1,3 @@
-//models/Product.js
 import mongoose from 'mongoose';
 
 const StockHistorySchema = new mongoose.Schema({
@@ -82,7 +81,6 @@ const ProductSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Index for faster search
 ProductSchema.index({ name: 'text' });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

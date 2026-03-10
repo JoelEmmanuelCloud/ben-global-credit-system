@@ -1,8 +1,7 @@
-//pages/customers/[id].js
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search, Filter, RotateCcw } from 'lucide-react';
 import Head from 'next/head';
 import { downloadCustomerReceipt } from '../../lib/pdfGenerator';
 import { useToast, useConfirm } from '../../components/Notifications';
@@ -17,29 +16,36 @@ export default function CustomerDetail() {
   const [returns, setReturns] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Product inventory states
   const [allProducts, setAllProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
 
-  // Modal states
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showEditCustomerModal, setShowEditCustomerModal] = useState(false);
   const [showEditOrderModal, setShowEditOrderModal] = useState(false);
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [showStatementModal, setShowStatementModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showEditReturnModal, setShowEditReturnModal] = useState(false);
+
+  const now = new Date();
+  const [statementFilter, setStatementFilter] = useState({
+    type: 'all',
+    month: now.getMonth().toString(),
+    year: now.getFullYear().toString(),
+    weekDate: now.toISOString().split('T')[0],
+    startDate: '',
+    endDate: '',
+  });
   
-  // Form states
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
   const [products, setProducts] = useState([
     { name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }
   ]);
   
-  // Edit states
   const [editingCustomer, setEditingCustomer] = useState({});
   const [editingOrder, setEditingOrder] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
@@ -100,7 +106,6 @@ export default function CustomerDetail() {
     }
   };
 
-  // Product search and selection
   const handleProductSearch = (searchValue, productIndex) => {
     setProductSearchTerm(searchValue);
 
@@ -115,7 +120,6 @@ export default function CustomerDetail() {
       setShowProductDropdown(false);
     }
 
-    // Update the product name
     const newProducts = [...products];
     newProducts[productIndex].name = searchValue;
     setProducts(newProducts);
@@ -136,7 +140,6 @@ export default function CustomerDetail() {
     setProductSearchTerm('');
   };
 
-  // Return product search and selection
   const fetchCustomerPurchaseHistory = async (productName) => {
     try {
       const res = await fetch(`/api/customers/${id}/purchase-history?productName=${encodeURIComponent(productName)}`);
@@ -166,10 +169,9 @@ export default function CustomerDetail() {
       setShowReturnProductDropdown(false);
     }
 
-    // Update the product name
     const newProducts = [...returnProducts];
     newProducts[productIndex].name = searchValue;
-    newProducts[productIndex].productId = null; // Clear when typing
+    newProducts[productIndex].productId = null;
     newProducts[productIndex].purchaseHistory = [];
     setReturnProducts(newProducts);
   };
@@ -188,13 +190,10 @@ export default function CustomerDetail() {
     setShowReturnProductDropdown(false);
     setReturnProductSearchTerm('');
 
-    // Fetch purchase history for validation
     const purchaseData = await fetchCustomerPurchaseHistory(product.name);
     if (purchaseData) {
       newProducts[productIndex].purchaseHistory = purchaseData.purchaseHistory || [];
       setReturnProducts([...newProducts]);
-
-      // Validate the return
       validateReturnProduct(productIndex, purchaseData);
     }
   };
@@ -223,8 +222,6 @@ export default function CustomerDetail() {
 
     setReturnValidationWarnings(newWarnings);
   };
-
-  // Customer edit/delete functions
   const handleEditCustomer = () => {
     setEditingCustomer({
       name: customer.name,
@@ -256,7 +253,6 @@ export default function CustomerDetail() {
     }
   };
 
-  // Order edit/delete functions
   const handleEditOrder = (order) => {
     setEditingOrder(order);
     setProducts(order.products.map(p => ({
@@ -324,7 +320,6 @@ export default function CustomerDetail() {
     }
   };
 
-  // Payment edit/delete functions
   const handleEditPayment = (payment) => {
     setEditingPayment(payment);
     setPaymentAmount(payment.amount.toString());
@@ -623,7 +618,6 @@ export default function CustomerDetail() {
     } else if (field === 'quantity') {
       newProducts[index][field] = value;
 
-      // Check stock availability
       if (newProducts[index].availableStock != null) {
         const requestedQty = parseFloat(value) || 0;
         if (requestedQty > newProducts[index].availableStock) {
@@ -668,7 +662,6 @@ export default function CustomerDetail() {
       return;
     }
 
-    // Check stock for inventory products
     for (const product of products.filter(p => p.productId)) {
       const requestedQty = parseFloat(product.quantity) || 0;
       if (requestedQty > product.availableStock) {
@@ -739,8 +732,72 @@ export default function CustomerDetail() {
     }
   };
 
+  const getStatementDateRange = () => {
+    const { type, month, year, weekDate, startDate, endDate } = statementFilter;
+    switch (type) {
+      case 'month': {
+        const m = parseInt(month);
+        const y = parseInt(year);
+        const start = new Date(y, m, 1);
+        const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+        const monthName = new Date(y, m).toLocaleString('en-GB', { month: 'long' });
+        return { start, end, label: `${monthName} ${y}` };
+      }
+      case 'year': {
+        const y = parseInt(year);
+        const start = new Date(y, 0, 1);
+        const end = new Date(y, 11, 31, 23, 59, 59, 999);
+        return { start, end, label: `Year ${y}` };
+      }
+      case 'week': {
+        const d = new Date(weekDate);
+        const dayOfWeek = d.getDay();
+        const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(d);
+        monday.setDate(d.getDate() + diffToMon);
+        monday.setHours(0, 0, 0, 0);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        return {
+          start: monday,
+          end: sunday,
+          label: `Week: ${monday.toLocaleDateString('en-GB')} – ${sunday.toLocaleDateString('en-GB')}`,
+        };
+      }
+      case 'custom': {
+        const start = startDate ? new Date(startDate + 'T00:00:00') : null;
+        const end = endDate ? new Date(endDate + 'T23:59:59') : null;
+        const startStr = startDate ? new Date(startDate).toLocaleDateString('en-GB') : 'Start';
+        const endStr = endDate ? new Date(endDate).toLocaleDateString('en-GB') : 'Today';
+        return { start, end, label: `${startStr} to ${endStr}` };
+      }
+      default:
+        return { start: null, end: null, label: 'All Time' };
+    }
+  };
+
+  const getFilteredStatementData = () => {
+    const { start, end, label } = getStatementDateRange();
+    if (!start && !end) {
+      return { filteredOrders: orders, filteredPayments: customer.payments || [], label: 'All Time' };
+    }
+    const filteredOrders = orders.filter(o => {
+      const d = new Date(o.createdAt);
+      return (!start || d >= start) && (!end || d <= end);
+    });
+    const filteredPayments = (customer.payments || []).filter(p => {
+      const d = new Date(p.date);
+      return (!start || d >= start) && (!end || d <= end);
+    });
+    return { filteredOrders, filteredPayments, label };
+  };
+
   const handleDownloadStatement = () => {
-    downloadCustomerReceipt(customer, orders);
+    const { filteredOrders, filteredPayments, label } = getFilteredStatementData();
+    const customerForStatement = { ...customer, payments: filteredPayments };
+    downloadCustomerReceipt(customerForStatement, filteredOrders, { periodLabel: label });
+    setShowStatementModal(false);
   };
 
   const getTotalOrders = () => {
@@ -794,7 +851,6 @@ export default function CustomerDetail() {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       </Head>
       <Layout>
-        {/* Back Button */}
         <button
           onClick={() => router.push('/customers')}
           className="flex items-center text-bge-green hover:text-bge-light-green mb-4 sm:mb-6 p-2 -ml-2 rounded-lg hover:bg-green-50 transition-colors min-h-[44px]"
@@ -802,8 +858,6 @@ export default function CustomerDetail() {
           <ArrowLeft className="w-5 h-5 mr-2" />
           <span className="font-medium">Back to Customers</span>
         </button>
-
-        {/* Customer Info Card */}
         <div className="card mb-4 sm:mb-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div className="flex-1 min-w-0">
@@ -829,8 +883,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         </div>
-
-        {/* Financial Summary Cards */}
         <div className={`grid ${hasOldBalance ? 'grid-cols-2 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-5'} gap-3 sm:gap-4 mb-4 sm:mb-6`}>
           {hasOldBalance && (
             <div className="card bg-orange-50 border-l-4 border-orange-500">
@@ -906,8 +958,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         </div>
-
-        {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4 sm:mb-6">
           <button
             onClick={() => setShowOrderModal(true)}
@@ -931,15 +981,13 @@ export default function CustomerDetail() {
             Record Payment
           </button>
           <button
-            onClick={handleDownloadStatement}
+            onClick={() => setShowStatementModal(true)}
             className="btn-secondary flex items-center justify-center min-h-[48px] text-base flex-1 sm:flex-initial"
           >
             <Download className="w-5 h-5 mr-2" />
             Download Statement
           </button>
         </div>
-
-        {/* Orders List */}
         <div className="card mb-4 sm:mb-6">
           <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
             <Package className="w-5 h-5 mr-2 text-bge-green" />
@@ -949,7 +997,6 @@ export default function CustomerDetail() {
             <div className="space-y-3">
               {orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((order) => (
                 <div key={order._id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow bg-gray-50">
-                  {/* Order Header */}
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900 text-sm sm:text-base">Order #{order.orderNumber}</p>
@@ -984,8 +1031,6 @@ export default function CustomerDetail() {
                       </button>
                     </div>
                   </div>
-
-                  {/* Products List */}
                   <div className="bg-white rounded p-2 sm:p-3">
                     <p className="text-xs font-semibold text-gray-700 mb-2">Products:</p>
                     <div className="space-y-1">
@@ -1016,7 +1061,7 @@ export default function CustomerDetail() {
           )}
         </div>
 
-        {/* Returns List */}
+
         {returns.length > 0 && (
           <div className="card mb-4 sm:mb-6">
             <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
@@ -1026,7 +1071,6 @@ export default function CustomerDetail() {
             <div className="space-y-3">
               {returns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((returnItem) => (
                 <div key={returnItem._id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow bg-yellow-50">
-                  {/* Return Header */}
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900 text-sm sm:text-base">Return #{returnItem.returnNumber}</p>
@@ -1067,7 +1111,6 @@ export default function CustomerDetail() {
                     </div>
                   </div>
 
-                  {/* Products List */}
                   <div className="bg-white rounded p-2 sm:p-3">
                     <p className="text-xs font-semibold text-gray-700 mb-2">Returned Products:</p>
                     <div className="space-y-1">
@@ -1089,7 +1132,6 @@ export default function CustomerDetail() {
           </div>
         )}
 
-        {/* Payment History */}
         {customer.payments && customer.payments.length > 0 && (
           <div className="card">
             <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
@@ -1138,8 +1180,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* MODALS - Create Order Modal */}
         {showOrderModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1161,7 +1201,6 @@ export default function CustomerDetail() {
                   {products.map((product, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50">
                       <div className="space-y-3">
-                        {/* Product Name with Search */}
                         <div className="relative">
                           <label className="label text-sm">
                             Product Name *
@@ -1185,8 +1224,6 @@ export default function CustomerDetail() {
                             />
                             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                           </div>
-
-                          {/* Product Dropdown */}
                           {showProductDropdown && filteredProducts.length > 0 && (
                             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                               {filteredProducts.map((prod) => (
@@ -1309,8 +1346,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* Edit Customer Modal */}
         {showEditCustomerModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
@@ -1395,8 +1430,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* Edit Order Modal - Similar structure to create */}
         {showEditOrderModal && editingOrder && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1511,8 +1544,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* Make Payment Modal */}
         {showPaymentModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -1589,8 +1620,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* Edit Payment Modal */}
         {showEditPaymentModal && editingPayment && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -1657,8 +1686,198 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
+        {showStatementModal && (() => {
+          const months = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December',
+          ];
+          const currentYear = new Date().getFullYear();
+          const years = Array.from({ length: currentYear - 2019 }, (_, i) => currentYear - i);
 
-        {/* Create Return Modal */}
+          const filterTypes = [
+            { value: 'all', label: 'All Time' },
+            { value: 'month', label: 'By Month' },
+            { value: 'year', label: 'By Year' },
+            { value: 'week', label: 'By Week' },
+            { value: 'custom', label: 'Custom Range' },
+          ];
+
+          const { filteredOrders, filteredPayments } = getFilteredStatementData();
+          const orderCount = filteredOrders.length;
+          const paymentCount = filteredPayments.length;
+          const orderTotal = filteredOrders.reduce((s, o) => s + o.totalAmount, 0);
+          const paymentTotal = filteredPayments.reduce((s, p) => s + p.amount, 0);
+
+          return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-5 h-5 text-bge-green" />
+                    <h2 className="text-lg font-bold text-gray-900">Download Statement</h2>
+                  </div>
+                  <button
+                    onClick={() => setShowStatementModal(false)}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  <div>
+                    <label className="label mb-2">Select Period</label>
+                    <div className="flex flex-wrap gap-2">
+                      {filterTypes.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setStatementFilter({ ...statementFilter, type: opt.value })}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                            statementFilter.type === opt.value
+                              ? 'bg-bge-green text-white border-bge-green'
+                              : 'bg-white text-gray-600 border-gray-300 hover:border-bge-green hover:text-bge-green'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {statementFilter.type === 'month' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="label">Month</label>
+                        <select
+                          className="input-field"
+                          value={statementFilter.month}
+                          onChange={e => setStatementFilter({ ...statementFilter, month: e.target.value })}
+                        >
+                          {months.map((m, i) => (
+                            <option key={i} value={i.toString()}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Year</label>
+                        <select
+                          className="input-field"
+                          value={statementFilter.year}
+                          onChange={e => setStatementFilter({ ...statementFilter, year: e.target.value })}
+                        >
+                          {years.map(y => (
+                            <option key={y} value={y.toString()}>{y}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                  {statementFilter.type === 'year' && (
+                    <div>
+                      <label className="label">Year</label>
+                      <select
+                        className="input-field"
+                        value={statementFilter.year}
+                        onChange={e => setStatementFilter({ ...statementFilter, year: e.target.value })}
+                      >
+                        {years.map(y => (
+                          <option key={y} value={y.toString()}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {statementFilter.type === 'week' && (
+                    <div>
+                      <label className="label">Pick any date in the week</label>
+                      <input
+                        type="date"
+                        className="input-field"
+                        value={statementFilter.weekDate}
+                        onChange={e => setStatementFilter({ ...statementFilter, weekDate: e.target.value })}
+                      />
+                      {statementFilter.weekDate && (() => {
+                        const d = new Date(statementFilter.weekDate);
+                        const dayOfWeek = d.getDay();
+                        const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                        const monday = new Date(d);
+                        monday.setDate(d.getDate() + diffToMon);
+                        const sunday = new Date(monday);
+                        sunday.setDate(monday.getDate() + 6);
+                        return (
+                          <p className="mt-1 text-xs text-gray-500">
+                            Week: {monday.toLocaleDateString('en-GB')} – {sunday.toLocaleDateString('en-GB')}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  {statementFilter.type === 'custom' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="label">From</label>
+                        <input
+                          type="date"
+                          className="input-field"
+                          value={statementFilter.startDate}
+                          onChange={e => setStatementFilter({ ...statementFilter, startDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">To</label>
+                        <input
+                          type="date"
+                          className="input-field"
+                          value={statementFilter.endDate}
+                          onChange={e => setStatementFilter({ ...statementFilter, endDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
+                    <p className="font-semibold text-gray-700 mb-2">Preview</p>
+                    <div className="space-y-1 text-gray-600">
+                      <div className="flex justify-between">
+                        <span>Orders found:</span>
+                        <span className="font-semibold text-gray-900">{orderCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Order total:</span>
+                        <span className="font-semibold text-gray-900">₦{orderTotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Payments found:</span>
+                        <span className="font-semibold text-gray-900">{paymentCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Amount paid:</span>
+                        <span className="font-semibold text-green-700">₦{paymentTotal.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    {orderCount === 0 && paymentCount === 0 && statementFilter.type !== 'all' && (
+                      <p className="mt-2 text-yellow-700 text-xs font-medium">No records found for this period.</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-200">
+                  <button
+                    onClick={() => setShowStatementModal(false)}
+                    className="btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDownloadStatement}
+                    className="btn-primary flex items-center gap-2"
+                    disabled={orderCount === 0 && paymentCount === 0 && statementFilter.type !== 'all'}
+                  >
+                    <Download className="w-4 h-4" />
+                    Download PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {showReturnModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1865,7 +2084,6 @@ export default function CustomerDetail() {
           </div>
         )}
 
-        {/* Edit Return Modal */}
         {showEditReturnModal && editingReturn && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">

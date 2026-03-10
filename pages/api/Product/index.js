@@ -1,4 +1,3 @@
-// pages/api/Product/index.js
 import dbConnect from '../../../lib/mongodb';
 import Product from '../../../models/Product';
 
@@ -11,12 +10,10 @@ export default async function handler(req, res) {
       
       let query = {};
       
-      // Filter by active status
       if (active !== undefined) {
         query.isActive = active === 'true';
       }
       
-      // Search by name
       if (search) {
         query.$or = [
           { name: { $regex: search, $options: 'i' } },
@@ -34,7 +31,6 @@ export default async function handler(req, res) {
     try {
       const { name, unit, currentStock, unitPrice, lowStockThreshold, description, category } = req.body;
 
-      // Check if product already exists
       const existingProduct = await Product.findOne({ 
         name: { $regex: new RegExp(`^${name}$`, 'i') } 
       });

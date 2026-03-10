@@ -1,4 +1,3 @@
-// pages/api/Product/[id]/stock.js
 import dbConnect from '../../../../lib/mongodb';
 import Product from '../../../../models/Product';
 
@@ -51,7 +50,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Add to stock history
       product.stockHistory.push({
         type,
         quantity: type === 'adjustment' ? Math.abs(quantity - previousStock) : quantity,

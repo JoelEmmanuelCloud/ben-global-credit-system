@@ -1,4 +1,3 @@
-// api/customers/[id]/payment/[paymentId].js
 import dbConnect from '../../../../../lib/mongodb';
 import Customer from '../../../../../models/Customer';
 import Order from '../../../../../models/Order';
@@ -15,7 +14,6 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: 'Customer not found' });
       }
 
-      // Find and remove the payment
       const paymentIndex = customer.payments.findIndex(
         p => p._id.toString() === paymentId
       );
@@ -26,14 +24,12 @@ export default async function handler(req, res) {
 
       customer.payments.splice(paymentIndex, 1);
 
-      // Recalculate totalDebt and wallet
       const allOrders = await Order.find({ customerId: id });
       const allReturns = await Return.find({ customerId: id });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
       const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
       const totalPaid = customer.payments.reduce((sum, p) => sum + p.amount, 0);
 
-      // Calculate net balance: if positive, it's prepaid (wallet); if negative, it's debt
       const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
 
       if (netBalance >= 0) {
@@ -55,9 +51,9 @@ export default async function handler(req, res) {
       const { amount, note } = req.body;
 
       if (!amount || amount <= 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Invalid payment amount' 
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid payment amount'
         });
       }
 
@@ -66,24 +62,20 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: 'Customer not found' });
       }
 
-      // Find the payment
       const payment = customer.payments.id(paymentId);
       if (!payment) {
         return res.status(404).json({ success: false, message: 'Payment not found' });
       }
 
-      // Update payment
       payment.amount = parseFloat(amount);
       payment.note = note || '';
 
-      // Recalculate totalDebt and wallet
       const allOrders = await Order.find({ customerId: id });
       const allReturns = await Return.find({ customerId: id });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
       const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
       const totalPaid = customer.payments.reduce((sum, p) => sum + p.amount, 0);
 
-      // Calculate net balance: if positive, it's prepaid (wallet); if negative, it's debt
       const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
 
       if (netBalance >= 0) {

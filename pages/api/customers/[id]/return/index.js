@@ -1,4 +1,3 @@
-// api/customers/[id]/return/index.js
 import dbConnect from '../../../../../lib/mongodb';
 import Customer from '../../../../../models/Customer';
 import Return from '../../../../../models/Return';
@@ -13,7 +12,6 @@ export default async function handler(req, res) {
     try {
       const { products, orderId, reason } = req.body;
 
-      // Validate products
       if (!products || products.length === 0) {
         return res.status(400).json({
           success: false,
@@ -21,7 +19,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Get customer
       const customer = await Customer.findById(id);
       if (!customer) {
         return res.status(404).json({
@@ -30,7 +27,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Process products
       const processedProducts = products.map(product => ({
         name: product.name,
         quantity: parseFloat(product.quantity),
@@ -44,7 +40,6 @@ export default async function handler(req, res) {
         0
       );
 
-      // Generate unique return number
       let returnNumber;
       let isUnique = false;
       let attemptCount = 0;
@@ -70,9 +65,7 @@ export default async function handler(req, res) {
         throw new Error('Failed to generate unique return number');
       }
 
-      // Update inventory stock for returned products BEFORE creating the return record
-      // This ensures inventory is updated first; if it fails, no orphaned return is created
-      const inventoryUpdates = []; // Track updates for rollback if needed
+      const inventoryUpdates = [];
       const inventoryFailures = [];
 
       for (const product of processedProducts) {
@@ -96,10 +89,8 @@ export default async function handler(req, res) {
               await inventoryProduct.save();
 
               inventoryUpdates.push({ productId: product.productId, quantity: product.quantity, productName: inventoryProduct.name });
-              console.log(`Stock updated for ${inventoryProduct.name}: ${previousStock} -> ${newStock}`);
             } else {
               inventoryFailures.push(`Product "${product.name}" (ID: ${product.productId}) not found in inventory`);
-              console.warn(`Product with ID ${product.productId} not found in inventory`);
             }
           } catch (error) {
             inventoryFailures.push(`Failed to update inventory for "${product.name}": ${error.message}`);
@@ -108,9 +99,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // If any inventory updates with a productId failed, rollback successful ones and abort
       if (inventoryFailures.length > 0) {
-        // Rollback successful inventory updates
         for (const update of inventoryUpdates) {
           try {
             const inventoryProduct = await Product.findById(update.productId);
@@ -140,7 +129,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Create return only after inventory is successfully updated
       const returnDoc = await Return.create({
         customerId: id,
         orderId: orderId || null,
@@ -150,7 +138,6 @@ export default async function handler(req, res) {
         reason: reason || '',
       });
 
-      // Update returnId in stock history entries
       for (const update of inventoryUpdates) {
         try {
           const inventoryProduct = await Product.findById(update.productId);
@@ -162,19 +149,16 @@ export default async function handler(req, res) {
             }
           }
         } catch (error) {
-          // Non-critical: returnId reference in history is nice-to-have
           console.error(`Error updating returnId in stock history:`, error);
         }
       }
 
-      // Recalculate customer debt
       const allOrders = await Order.find({ customerId: id });
       const allReturns = await Return.find({ customerId: id });
       const totalOrders = allOrders.reduce((sum, order) => sum + order.totalAmount, 0);
       const totalReturns = allReturns.reduce((sum, ret) => sum + ret.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, payment) => sum + payment.amount, 0) : 0;
 
-      // Calculate net balance: totalPaid - (oldBalance + totalOrders - totalReturns)
       const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
 
       if (netBalance >= 0) {

@@ -1,5 +1,3 @@
-// pages/api/Payment.js
-// LEGACY ENDPOINT - The primary payment endpoint is /api/customers/[id]/payment
 import dbConnect from '../../lib/mongodb';
 import Order from '../../models/Order';
 import Customer from '../../models/Customer';
@@ -27,18 +25,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Payment amount exceeds order balance' });
       }
 
-      // Add payment to order
       order.payments.push({
         amount,
         date: new Date(),
         note: note || '',
       });
 
-      // Update order amounts
       order.amountPaid += amount;
       order.balance -= amount;
 
-      // Update status
       if (order.balance === 0) {
         order.status = 'paid';
       } else if (order.amountPaid > 0) {
@@ -47,7 +42,6 @@ export default async function handler(req, res) {
 
       await order.save();
 
-      // Recalculate customer debt using the same formula as all other endpoints
       const customer = await Customer.findById(order.customerId);
       if (customer) {
         const allOrders = await Order.find({ customerId: customer._id });

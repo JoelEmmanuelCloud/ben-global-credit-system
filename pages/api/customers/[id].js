@@ -1,4 +1,3 @@
-// api/customers/[id].js
 import dbConnect from '../../../lib/mongodb';
 import Customer from '../../../models/Customer';
 import Order from '../../../models/Order';
@@ -54,7 +53,6 @@ export default async function handler(req, res) {
           return res.status(404).json({ success: false, message: 'Customer not found' });
         }
 
-        // Delete all orders and returns for this customer
         await Order.deleteMany({ customerId: id });
         await Return.deleteMany({ customerId: id });
 

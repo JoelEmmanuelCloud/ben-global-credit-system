@@ -1,4 +1,3 @@
-// api/customers/[id]/return/[returnId].js
 import dbConnect from '../../../../../lib/mongodb';
 import Customer from '../../../../../models/Customer';
 import Return from '../../../../../models/Return';
@@ -16,14 +15,13 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: 'Return not found' });
       }
 
-      // Reverse inventory stock additions before deleting
       for (const product of returnDoc.products) {
         if (product.productId) {
           try {
             const inventoryProduct = await Product.findById(product.productId);
             if (inventoryProduct) {
               const previousStock = inventoryProduct.currentStock;
-              const newStock = Math.max(0, previousStock - product.quantity); // Prevent negative stock
+              const newStock = Math.max(0, previousStock - product.quantity);
 
               inventoryProduct.stockHistory.push({
                 type: 'deduction',
@@ -36,19 +34,15 @@ export default async function handler(req, res) {
 
               inventoryProduct.currentStock = newStock;
               await inventoryProduct.save();
-
-              console.log(`Stock reversed for ${inventoryProduct.name}: ${previousStock} -> ${newStock}`);
             }
           } catch (error) {
             console.error(`Error reversing stock for deleted return:`, error);
-            // Continue with deletion even if stock reversal fails
           }
         }
       }
 
       await Return.findByIdAndDelete(returnId);
 
-      // Recalculate customer debt
       const customer = await Customer.findById(id);
       if (customer) {
         const allOrders = await Order.find({ customerId: id });
@@ -57,7 +51,6 @@ export default async function handler(req, res) {
         const totalReturns = allReturns.reduce((sum, ret) => sum + ret.totalAmount, 0);
         const totalPaid = customer.payments ? customer.payments.reduce((sum, payment) => sum + payment.amount, 0) : 0;
 
-        // Calculate net balance
         const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
 
         if (netBalance >= 0) {
@@ -91,10 +84,8 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: 'Return not found' });
       }
 
-      // Get the old products to reverse stock changes
       const oldProducts = returnDoc.products;
 
-      // Process new products
       const processedProducts = products.map(product => ({
         name: product.name,
         quantity: parseFloat(product.quantity),
@@ -108,13 +99,10 @@ export default async function handler(req, res) {
         0
       );
 
-      // INVENTORY ADJUSTMENT: Reverse old stock additions and apply new ones
-      // Track all changes for rollback if any step fails
       const reversalsDone = [];
       const additionsDone = [];
       const inventoryFailures = [];
 
-      // First, reverse the old stock additions
       for (const oldProduct of oldProducts) {
         if (oldProduct.productId) {
           try {
@@ -136,7 +124,6 @@ export default async function handler(req, res) {
               await inventoryProduct.save();
 
               reversalsDone.push({ productId: oldProduct.productId, quantity: oldProduct.quantity });
-              console.log(`Reversed stock for ${inventoryProduct.name}: ${previousStock} -> ${newStock}`);
             }
           } catch (error) {
             inventoryFailures.push(`Failed to reverse stock for "${oldProduct.name}": ${error.message}`);
@@ -145,7 +132,6 @@ export default async function handler(req, res) {
         }
       }
 
-      // If reversals failed, undo any successful reversals and abort
       if (inventoryFailures.length > 0) {
         for (const rev of reversalsDone) {
           try {
@@ -172,7 +158,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Then, apply the new stock additions
       for (const newProduct of processedProducts) {
         if (newProduct.productId) {
           try {
@@ -194,7 +179,6 @@ export default async function handler(req, res) {
               await inventoryProduct.save();
 
               additionsDone.push({ productId: newProduct.productId, quantity: newProduct.quantity });
-              console.log(`Added stock for ${inventoryProduct.name}: ${previousStock} -> ${newStock}`);
             }
           } catch (error) {
             inventoryFailures.push(`Failed to add stock for "${newProduct.name}": ${error.message}`);
@@ -203,9 +187,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // If additions failed, rollback additions and re-apply old reversals, then abort
       if (inventoryFailures.length > 0) {
-        // Undo successful additions
         for (const add of additionsDone) {
           try {
             const inventoryProduct = await Product.findById(add.productId);
@@ -225,7 +207,6 @@ export default async function handler(req, res) {
             console.error(`Error rolling back addition:`, e);
           }
         }
-        // Re-apply old stock (undo reversals)
         for (const rev of reversalsDone) {
           try {
             const inventoryProduct = await Product.findById(rev.productId);
@@ -251,13 +232,11 @@ export default async function handler(req, res) {
         });
       }
 
-      // Update return only after all inventory changes succeeded
       returnDoc.products = processedProducts;
       returnDoc.totalAmount = totalAmount;
       returnDoc.reason = reason || '';
       await returnDoc.save();
 
-      // Recalculate customer debt
       const customer = await Customer.findById(id);
       if (customer) {
         const allOrders = await Order.find({ customerId: id });
@@ -266,7 +245,6 @@ export default async function handler(req, res) {
         const totalReturns = allReturns.reduce((sum, ret) => sum + ret.totalAmount, 0);
         const totalPaid = customer.payments ? customer.payments.reduce((sum, payment) => sum + payment.amount, 0) : 0;
 
-        // Calculate net balance
         const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
 
         if (netBalance >= 0) {

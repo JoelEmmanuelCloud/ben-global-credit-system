@@ -16,14 +16,12 @@ export default function Expenses() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
 
-  // Filter states
   const [dateFilter, setDateFilter] = useState({
     startDate: '',
     endDate: ''
   });
   const [categoryFilter, setCategoryFilter] = useState('all');
 
-  // Form state
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     amount: '',
@@ -79,7 +77,6 @@ export default function Expenses() {
   const applyFilters = () => {
     let filtered = [...expenses];
 
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(exp =>
         exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,12 +85,10 @@ export default function Expenses() {
       );
     }
 
-    // Category filter
     if (categoryFilter && categoryFilter !== 'all') {
       filtered = filtered.filter(exp => exp.category === categoryFilter);
     }
 
-    // Date range filter
     if (dateFilter.startDate) {
       filtered = filtered.filter(exp => new Date(exp.date) >= new Date(dateFilter.startDate));
     }
@@ -247,7 +242,6 @@ export default function Expenses() {
     return colorMap[color] || colorMap.gray;
   };
 
-  // Calculate summaries
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const currentMonthExpenses = expenses.filter(exp => {
@@ -265,7 +259,6 @@ export default function Expenses() {
         <title>Expenses - BGE Credit Management</title>
       </Head>
       <Layout title="Financial Expenses">
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="card bg-blue-50 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
@@ -307,11 +300,8 @@ export default function Expenses() {
             </div>
           </div>
         </div>
-
-        {/* Filters and Actions */}
         <div className="card mb-6">
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -324,8 +314,6 @@ export default function Expenses() {
                 />
               </div>
             </div>
-
-            {/* Date Range */}
             <div className="flex gap-2">
               <input
                 type="date"
@@ -342,8 +330,6 @@ export default function Expenses() {
                 placeholder="End Date"
               />
             </div>
-
-            {/* Category Filter */}
             <select
               className="input-field"
               value={categoryFilter}
@@ -353,8 +339,6 @@ export default function Expenses() {
                 <option key={cat.value} value={cat.value}>{cat.label}</option>
               ))}
             </select>
-
-            {/* Export PDF Button */}
             <button
               onClick={handleExportPDF}
               className="btn-secondary flex items-center gap-2 whitespace-nowrap"
@@ -363,8 +347,6 @@ export default function Expenses() {
               <Download className="w-4 h-4" />
               Export PDF
             </button>
-
-            {/* Add Expense Button */}
             <button
               onClick={() => setShowAddModal(true)}
               className="btn-primary flex items-center gap-2 whitespace-nowrap"
@@ -374,8 +356,6 @@ export default function Expenses() {
             </button>
           </div>
         </div>
-
-        {/* Expenses List */}
         {loading ? (
           <div className="text-center py-12">
             <p className="text-gray-500">Loading expenses...</p>
@@ -395,7 +375,6 @@ export default function Expenses() {
           </div>
         ) : (
           <>
-            {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -458,8 +437,6 @@ export default function Expenses() {
                 </tbody>
               </table>
             </div>
-
-            {/* Mobile Card View */}
             <div className="md:hidden space-y-4">
               {filteredExpenses.map((expense) => (
                 <div key={expense._id} className="card">
@@ -519,8 +496,6 @@ export default function Expenses() {
             </div>
           </>
         )}
-
-        {/* Add Expense Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -535,7 +510,6 @@ export default function Expenses() {
               </div>
 
               <form onSubmit={handleAddExpense} className="p-6">
-                {/* Basic Info Section */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -610,8 +584,6 @@ export default function Expenses() {
                     </div>
                   </div>
                 </div>
-
-                {/* Payment Details Section */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -645,8 +617,6 @@ export default function Expenses() {
                     </div>
                   </div>
                 </div>
-
-                {/* Vendor Information Section */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Vendor Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -677,8 +647,6 @@ export default function Expenses() {
                     </div>
                   </div>
                 </div>
-
-                {/* Tax Information Section */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Tax Information</h3>
                   <div className="flex items-center">
@@ -694,8 +662,6 @@ export default function Expenses() {
                     </label>
                   </div>
                 </div>
-
-                {/* Summary */}
                 {(formData.amount || formData.vatAmount) && (
                   <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                     <div className="flex justify-between items-center">
@@ -709,8 +675,6 @@ export default function Expenses() {
                     </div>
                   </div>
                 )}
-
-                {/* Actions */}
                 <div className="flex gap-3 justify-end">
                   <button
                     type="button"
@@ -727,8 +691,6 @@ export default function Expenses() {
             </div>
           </div>
         )}
-
-        {/* Edit Expense Modal */}
         {showEditModal && selectedExpense && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -743,7 +705,6 @@ export default function Expenses() {
               </div>
 
               <form onSubmit={handleEditExpense} className="p-6">
-                {/* Basic Info Section */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -818,8 +779,6 @@ export default function Expenses() {
                     </div>
                   </div>
                 </div>
-
-                {/* Payment Details Section */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -853,8 +812,6 @@ export default function Expenses() {
                     </div>
                   </div>
                 </div>
-
-                {/* Vendor Information Section */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Vendor Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -885,8 +842,6 @@ export default function Expenses() {
                     </div>
                   </div>
                 </div>
-
-                {/* Tax Information Section */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Tax Information</h3>
                   <div className="flex items-center">
@@ -902,8 +857,6 @@ export default function Expenses() {
                     </label>
                   </div>
                 </div>
-
-                {/* Summary */}
                 {(formData.amount || formData.vatAmount) && (
                   <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                     <div className="flex justify-between items-center">
@@ -917,8 +870,6 @@ export default function Expenses() {
                     </div>
                   </div>
                 )}
-
-                {/* Actions */}
                 <div className="flex gap-3 justify-end">
                   <button
                     type="button"
