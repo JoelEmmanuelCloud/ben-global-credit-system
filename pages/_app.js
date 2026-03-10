@@ -10,9 +10,12 @@ function MyApp({ Component, pageProps }) {
   useEffect(() => {
     const token = localStorage.getItem('token')
 
+    const isPortal = router.pathname === '/portal' || router.pathname.startsWith('/portal/')
+    const isPublic = router.pathname === '/login' || router.pathname === '/setup' || isPortal
+
     if (token) {
       setIsAuthenticated(true)
-    } else if (router.pathname !== '/login' && router.pathname !== '/setup') {
+    } else if (!isPublic) {
       router.push('/login')
     }
   }, [router.pathname])

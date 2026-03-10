@@ -123,6 +123,12 @@ export default function Login() {
               <p className="font-medium text-gray-600">Ben Global Enterprises</p>
               <p>18 Bishop Okoye Street, Port Harcourt</p>
               <p>Tel: 08068609964</p>
+              <a
+                href="/portal"
+                className="inline-block mt-3 text-bge-green hover:text-bge-light-green font-medium transition-colors"
+              >
+                Customer? View your account →
+              </a>
             </div>
           </div>
         </div>
