@@ -45,7 +45,6 @@ export default async function handler(req, res) {
     const orders = await Order.find({ customerId: id }).sort({ createdAt: -1 });
     const returns = await Return.find({ customerId: id }).sort({ createdAt: -1 });
 
-    // Recalculate live balance
     const totalOrders = orders.reduce((s, o) => s + o.totalAmount, 0);
     const totalReturns = returns.reduce((s, r) => s + r.totalAmount, 0);
     const totalPaid = customer.payments

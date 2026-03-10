@@ -4,12 +4,11 @@ import jwt from 'jsonwebtoken';
 
 const PORTAL_SECRET = process.env.JWT_SECRET + '_portal';
 
-// Simple in-memory rate limiter: max 10 attempts per IP per 15 minutes
 const attempts = new Map();
 
 function isRateLimited(ip) {
   const now = Date.now();
-  const window = 15 * 60 * 1000; // 15 minutes
+  const window = 15 * 60 * 1000;
   const max = 10;
 
   const record = attempts.get(ip) || { count: 0, resetAt: now + window };
@@ -49,7 +48,6 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    // Normalize: trim whitespace, case-insensitive name match, strip non-digits from phone
     const normalizedPhone = phone.replace(/\D/g, '');
 
     const customers = await Customer.find({
@@ -59,7 +57,6 @@ export default async function handler(req, res) {
     const match = customers.find(c => c.phone.replace(/\D/g, '') === normalizedPhone);
 
     if (!match) {
-      // Generic message — don't reveal whether the name or phone was wrong
       return res.status(401).json({
         success: false,
         message: 'No account found with that name and phone number.',
