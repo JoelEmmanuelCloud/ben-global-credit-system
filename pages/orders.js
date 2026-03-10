@@ -5,8 +5,10 @@ import { Search, Download, Filter, ChevronRight, Calendar, User, CreditCard } fr
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { downloadCustomerReceipt } from '../lib/pdfGenerator';
+import { useToast } from '../components/Notifications';
 
 export default function Orders() {
+  const toast = useToast();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -72,7 +74,7 @@ export default function Orders() {
       }
     } catch (error) {
       console.error('Error downloading receipt:', error);
-      alert('Error downloading receipt');
+      toast('Error downloading receipt', 'error');
     }
   };
 

@@ -3,8 +3,11 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Plus, Package, AlertTriangle, Edit, Trash2, X, TrendingUp, TrendingDown, History, Users } from 'lucide-react';
 import Head from 'next/head';
+import { useToast, useConfirm } from '../components/Notifications';
 
 export default function Warehouse() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,13 +88,13 @@ export default function Warehouse() {
         setShowAddModal(false);
         resetForm();
         fetchProducts();
-        alert('Product added successfully!');
+        toast('Product added successfully!', 'success');
       } else {
-        alert(data.message || 'Error adding product');
+        toast(data.message || 'Error adding product', 'error');
       }
     } catch (error) {
       console.error('Error adding product:', error);
-      alert('Error adding product');
+      toast('Error adding product', 'error');
     }
   };
 
@@ -113,13 +116,13 @@ export default function Warehouse() {
         setShowEditModal(false);
         resetForm();
         fetchProducts();
-        alert('Product updated successfully!');
+        toast('Product updated successfully!', 'success');
       } else {
-        alert(data.message || 'Error updating product');
+        toast(data.message || 'Error updating product', 'error');
       }
     } catch (error) {
       console.error('Error updating product:', error);
-      alert('Error updating product');
+      toast('Error updating product', 'error');
     }
   };
 
@@ -141,18 +144,22 @@ export default function Warehouse() {
         setShowStockModal(false);
         setStockData({ type: 'addition', quantity: '', reason: '' });
         fetchProducts();
-        alert('Stock updated successfully!');
+        toast('Stock updated successfully!', 'success');
       } else {
-        alert(data.message || 'Error updating stock');
+        toast(data.message || 'Error updating stock', 'error');
       }
     } catch (error) {
       console.error('Error updating stock:', error);
-      alert('Error updating stock');
+      toast('Error updating stock', 'error');
     }
   };
 
   const handleDeleteProduct = async (productId) => {
-    if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+    const confirmed = await confirm(
+      'Are you sure you want to delete this product? This action cannot be undone.',
+      'Delete Product'
+    );
+    if (confirmed) {
       try {
         const res = await fetch(`/api/Product/${productId}`, {
           method: 'DELETE',
@@ -161,13 +168,13 @@ export default function Warehouse() {
         const data = await res.json();
         if (res.ok) {
           fetchProducts();
-          alert('Product deleted successfully!');
+          toast('Product deleted successfully!', 'success');
         } else {
-          alert(data.message || 'Error deleting product');
+          toast(data.message || 'Error deleting product', 'error');
         }
       } catch (error) {
         console.error('Error deleting product:', error);
-        alert('Error deleting product');
+        toast('Error deleting product', 'error');
       }
     }
   };

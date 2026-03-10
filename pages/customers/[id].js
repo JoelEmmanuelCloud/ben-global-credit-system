@@ -5,8 +5,11 @@ import Layout from '../../components/Layout';
 import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search, RotateCcw } from 'lucide-react';
 import Head from 'next/head';
 import { downloadCustomerReceipt } from '../../lib/pdfGenerator';
+import { useToast, useConfirm } from '../../components/Notifications';
 
 export default function CustomerDetail() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const router = useRouter();
   const { id } = router.query;
   const [customer, setCustomer] = useState(null);
@@ -245,11 +248,11 @@ export default function CustomerDetail() {
       if (res.ok) {
         setShowEditCustomerModal(false);
         fetchCustomerDetails();
-        alert('Customer updated successfully!');
+        toast('Customer updated successfully!', 'success');
       }
     } catch (error) {
       console.error('Error updating customer:', error);
-      alert('Error updating customer');
+      toast('Error updating customer', 'error');
     }
   };
 
@@ -276,7 +279,7 @@ export default function CustomerDetail() {
       }));
 
     if (validProducts.length === 0) {
-      alert('Please add at least one valid product');
+      toast('Please add at least one valid product', 'warning');
       return;
     }
 
@@ -291,16 +294,20 @@ export default function CustomerDetail() {
         setShowEditOrderModal(false);
         setProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }]);
         fetchCustomerDetails();
-        alert('Order updated successfully!');
+        toast('Order updated successfully!', 'success');
       }
     } catch (error) {
       console.error('Error updating order:', error);
-      alert('Error updating order');
+      toast('Error updating order', 'error');
     }
   };
 
   const handleDeleteOrder = async (orderId) => {
-    if (confirm('Are you sure you want to delete this order?')) {
+    const confirmed = await confirm(
+      'Are you sure you want to delete this order? This action cannot be undone.',
+      'Delete Order'
+    );
+    if (confirmed) {
       try {
         const res = await fetch(`/api/orders/${orderId}`, {
           method: 'DELETE'
@@ -308,11 +315,11 @@ export default function CustomerDetail() {
 
         if (res.ok) {
           fetchCustomerDetails();
-          alert('Order deleted successfully!');
+          toast('Order deleted successfully!', 'success');
         }
       } catch (error) {
         console.error('Error deleting order:', error);
-        alert('Error deleting order');
+        toast('Error deleting order', 'error');
       }
     }
   };
@@ -342,16 +349,20 @@ export default function CustomerDetail() {
         setPaymentAmount('');
         setPaymentNote('');
         fetchCustomerDetails();
-        alert('Payment updated successfully!');
+        toast('Payment updated successfully!', 'success');
       }
     } catch (error) {
       console.error('Error updating payment:', error);
-      alert('Error updating payment');
+      toast('Error updating payment', 'error');
     }
   };
 
   const handleDeletePayment = async (paymentId) => {
-    if (confirm('Are you sure you want to delete this payment?')) {
+    const confirmed = await confirm(
+      'Are you sure you want to delete this payment? This action cannot be undone.',
+      'Delete Payment'
+    );
+    if (confirmed) {
       try {
         const res = await fetch(`/api/customers/${id}/payment/${paymentId}`, {
           method: 'DELETE'
@@ -359,11 +370,11 @@ export default function CustomerDetail() {
 
         if (res.ok) {
           fetchCustomerDetails();
-          alert('Payment deleted successfully!');
+          toast('Payment deleted successfully!', 'success');
         }
       } catch (error) {
         console.error('Error deleting payment:', error);
-        alert('Error deleting payment');
+        toast('Error deleting payment', 'error');
       }
     }
   };
@@ -616,7 +627,7 @@ export default function CustomerDetail() {
       if (newProducts[index].availableStock != null) {
         const requestedQty = parseFloat(value) || 0;
         if (requestedQty > newProducts[index].availableStock) {
-          alert(`Only ${newProducts[index].availableStock.toLocaleString()} ${newProducts[index].unit} available in stock!`);
+          toast(`Only ${newProducts[index].availableStock.toLocaleString()} ${newProducts[index].unit} available in stock!`, 'warning');
         }
       }
     } else {
@@ -653,7 +664,7 @@ export default function CustomerDetail() {
       }));
 
     if (validProducts.length === 0) {
-      alert('Please add at least one valid product');
+      toast('Please add at least one valid product', 'warning');
       return;
     }
 
@@ -661,7 +672,7 @@ export default function CustomerDetail() {
     for (const product of products.filter(p => p.productId)) {
       const requestedQty = parseFloat(product.quantity) || 0;
       if (requestedQty > product.availableStock) {
-        alert(`Insufficient stock for ${product.name}. Available: ${product.availableStock.toLocaleString()} ${product.unit}`);
+        toast(`Insufficient stock for ${product.name}. Available: ${product.availableStock.toLocaleString()} ${product.unit}`, 'error');
         return;
       }
     }
@@ -684,13 +695,13 @@ export default function CustomerDetail() {
         setShowOrderModal(false);
         setProducts([{ name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }]);
         fetchCustomerDetails();
-        alert('Order created successfully!');
+        toast('Order created successfully!', 'success');
       } else {
-        alert(data.message || 'Error creating order');
+        toast(data.message || 'Error creating order', 'error');
       }
     } catch (error) {
       console.error('Error creating order:', error);
-      alert('Error creating order');
+      toast('Error creating order', 'error');
     }
   };
 
@@ -718,13 +729,13 @@ export default function CustomerDetail() {
         setPaymentAmount('');
         setPaymentNote('');
         fetchCustomerDetails();
-        alert('Payment recorded successfully!');
+        toast('Payment recorded successfully!', 'success');
       } else {
-        alert(data.message || 'Error processing payment');
+        toast(data.message || 'Error processing payment', 'error');
       }
     } catch (error) {
       console.error('Error making payment:', error);
-      alert('Error processing payment');
+      toast('Error processing payment', 'error');
     }
   };
 
