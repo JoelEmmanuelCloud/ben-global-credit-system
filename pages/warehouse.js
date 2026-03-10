@@ -19,6 +19,7 @@ export default function Warehouse() {
   const [purchaseHistory, setPurchaseHistory] = useState(null);
   const [purchaseHistoryLoading, setPurchaseHistoryLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -52,6 +53,20 @@ export default function Warehouse() {
     }
   }, [searchTerm, products]);
 
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setShowAddModal(false);
+        setShowEditModal(false);
+        setShowStockModal(false);
+        setShowHistoryModal(false);
+        setShowPurchaseHistoryModal(false);
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, []);
+
   const fetchProducts = async () => {
     try {
       const res = await fetch('/api/Product');
@@ -69,6 +84,7 @@ export default function Warehouse() {
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const res = await fetch('/api/Product', {
         method: 'POST',
@@ -93,11 +109,14 @@ export default function Warehouse() {
     } catch (error) {
       console.error('Error adding product:', error);
       toast('Error adding product', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleEditProduct = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const res = await fetch(`/api/Product/${selectedProduct._id}`, {
         method: 'PUT',
@@ -121,11 +140,14 @@ export default function Warehouse() {
     } catch (error) {
       console.error('Error updating product:', error);
       toast('Error updating product', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleUpdateStock = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const res = await fetch(`/api/Product/${selectedProduct._id}/stock`, {
         method: 'POST',
@@ -149,6 +171,8 @@ export default function Warehouse() {
     } catch (error) {
       console.error('Error updating stock:', error);
       toast('Error updating stock', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -317,8 +341,17 @@ export default function Warehouse() {
               placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bge-green"
+              className="w-full pl-10 pr-9 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bge-green"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
           <button
             onClick={() => setShowAddModal(true)}
@@ -353,10 +386,17 @@ export default function Warehouse() {
                       return (
                         <tr key={product._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                            {product.description && (
-                              <div className="text-xs text-gray-500">{product.description}</div>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {product.currentStock <= product.lowStockThreshold && (
+                                <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" title="Low or out of stock" />
+                              )}
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                {product.description && (
+                                  <div className="text-xs text-gray-500">{product.description}</div>
+                                )}
+                              </div>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                             {product.category || '-'}
@@ -429,7 +469,12 @@ export default function Warehouse() {
                   <div key={product._id} className="card">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{product.name}</h3>
+                        <div className="flex items-center gap-2">
+                          {product.currentStock <= product.lowStockThreshold && (
+                            <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" title="Low or out of stock" />
+                          )}
+                          <h3 className="font-semibold text-gray-900">{product.name}</h3>
+                        </div>
                         {product.category && (
                           <p className="text-xs text-gray-500">{product.category}</p>
                         )}
@@ -511,8 +556,8 @@ export default function Warehouse() {
           </div>
         )}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => { setShowAddModal(false); resetForm(); }}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Add New Product</h3>
                 <button
@@ -627,8 +672,14 @@ export default function Warehouse() {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Add Product
+                  <button type="submit" className="btn-primary flex items-center gap-2" disabled={isSubmitting}>
+                    {isSubmitting && (
+                      <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                    )}
+                    {isSubmitting ? 'Adding...' : 'Add Product'}
                   </button>
                 </div>
               </form>
@@ -636,8 +687,8 @@ export default function Warehouse() {
           </div>
         )}
         {showEditModal && selectedProduct && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => { setShowEditModal(false); resetForm(); }}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Edit Product</h3>
                 <button
@@ -743,8 +794,14 @@ export default function Warehouse() {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Save Changes
+                  <button type="submit" className="btn-primary flex items-center gap-2" disabled={isSubmitting}>
+                    {isSubmitting && (
+                      <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                    )}
+                    {isSubmitting ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
@@ -752,8 +809,8 @@ export default function Warehouse() {
           </div>
         )}
         {showStockModal && selectedProduct && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => { setShowStockModal(false); setStockData({ type: 'addition', quantity: '', reason: '' }); }}>
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Update Stock</h3>
                 <button
@@ -828,8 +885,14 @@ export default function Warehouse() {
                     >
                       Cancel
                     </button>
-                    <button type="submit" className="btn-primary">
-                      Update Stock
+                    <button type="submit" className="btn-primary flex items-center gap-2" disabled={isSubmitting}>
+                      {isSubmitting && (
+                        <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                      )}
+                      {isSubmitting ? 'Updating...' : 'Update Stock'}
                     </button>
                   </div>
                 </form>
@@ -838,8 +901,8 @@ export default function Warehouse() {
           </div>
         )}
         {showHistoryModal && selectedProduct && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => setShowHistoryModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Stock History</h3>
                 <button
@@ -928,8 +991,8 @@ export default function Warehouse() {
           </div>
         )}
         {showPurchaseHistoryModal && selectedProduct && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => { setShowPurchaseHistoryModal(false); setPurchaseHistory(null); }}>
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Purchase History</h3>
                 <button

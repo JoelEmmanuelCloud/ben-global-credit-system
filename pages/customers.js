@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Plus, Search, Trash2, Phone, Mail, MapPin, ChevronRight } from 'lucide-react';
+import { Plus, Search, Trash2, Phone, Mail, MapPin, ChevronRight, X } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -10,6 +10,7 @@ export default function Customers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -35,6 +36,14 @@ export default function Customers() {
     }
   }, [searchTerm, customers]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showModal) setShowModal(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showModal]);
+
   const fetchCustomers = async () => {
     try {
       const res = await fetch('/api/customers');
@@ -52,7 +61,7 @@ export default function Customers() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    setIsSubmitting(true);
     try {
       const res = await fetch('/api/customers', {
         method: 'POST',
@@ -69,6 +78,8 @@ export default function Customers() {
       }
     } catch (error) {
       console.error('Error creating customer:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -96,15 +107,31 @@ export default function Customers() {
       </Head>
       <Layout title="Customers">
         <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-6">
-          <div className="relative w-full sm:w-96">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search customers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bge-green text-base"
-            />
+          <div className="flex flex-col gap-1 w-full sm:w-96">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-9 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-bge-green text-base"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {searchTerm && (
+              <p className="text-xs text-gray-500 pl-1">
+                Showing {filteredCustomers.length} of {customers.length} customers
+              </p>
+            )}
           </div>
           <button
             onClick={() => setShowModal(true)}
@@ -255,10 +282,26 @@ export default function Customers() {
         )}
 
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full my-8">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto"
+            onClick={() => setShowModal(false)}
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl max-w-md w-full my-8 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="p-6">
-                <h3 className="text-xl font-semibold mb-4">Add New Customer</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold">Add New Customer</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors p-1 -mr-1"
+                    aria-label="Close modal"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="label">Name *</label>
@@ -322,8 +365,16 @@ export default function Customers() {
                     >
                       Cancel
                     </button>
-                    <button type="submit" className="btn-primary w-full sm:w-auto">
-                      Add Customer
+                    <button type="submit" disabled={isSubmitting} className="btn-primary w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed">
+                      {isSubmitting ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2 inline" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                          Adding...
+                        </>
+                      ) : 'Add Customer'}
                     </button>
                   </div>
                 </form>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { ArrowLeft, Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search, Filter, RotateCcw } from 'lucide-react';
+import { Plus, Download, DollarSign, X, Calendar, Package, CreditCard, Edit, Trash2, Search, Filter, RotateCcw, ChevronRight, Loader2 } from 'lucide-react';
 import Head from 'next/head';
 import { downloadCustomerReceipt } from '../../lib/pdfGenerator';
 import { useToast, useConfirm } from '../../components/Notifications';
@@ -29,6 +29,11 @@ export default function CustomerDetail() {
   const [showStatementModal, setShowStatementModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showEditReturnModal, setShowEditReturnModal] = useState(false);
+
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [customerSubmitting, setCustomerSubmitting] = useState(false);
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
 
   const now = new Date();
   const [statementFilter, setStatementFilter] = useState({
@@ -70,6 +75,22 @@ export default function CustomerDetail() {
       fetchInventoryProducts();
     }
   }, [id]);
+
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key !== 'Escape') return;
+      setShowOrderModal(false);
+      setShowPaymentModal(false);
+      setShowEditCustomerModal(false);
+      setShowEditOrderModal(false);
+      setShowEditPaymentModal(false);
+      setShowStatementModal(false);
+      setShowReturnModal(false);
+      setShowEditReturnModal(false);
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, []);
 
   const fetchCustomerDetails = async () => {
     try {
@@ -235,6 +256,7 @@ export default function CustomerDetail() {
 
   const handleSaveCustomer = async (e) => {
     e.preventDefault();
+    setCustomerSubmitting(true);
     try {
       const res = await fetch(`/api/customers/${id}/edit`, {
         method: 'PUT',
@@ -250,6 +272,8 @@ export default function CustomerDetail() {
     } catch (error) {
       console.error('Error updating customer:', error);
       toast('Error updating customer', 'error');
+    } finally {
+      setCustomerSubmitting(false);
     }
   };
 
@@ -265,7 +289,7 @@ export default function CustomerDetail() {
 
   const handleSaveOrder = async (e) => {
     e.preventDefault();
-    
+
     const validProducts = products
       .filter(p => p.name && p.quantity && p.unitPrice)
       .map(p => ({
@@ -279,6 +303,7 @@ export default function CustomerDetail() {
       return;
     }
 
+    setOrderSubmitting(true);
     try {
       const res = await fetch(`/api/orders/${editingOrder._id}/edit`, {
         method: 'PUT',
@@ -295,6 +320,8 @@ export default function CustomerDetail() {
     } catch (error) {
       console.error('Error updating order:', error);
       toast('Error updating order', 'error');
+    } finally {
+      setOrderSubmitting(false);
     }
   };
 
@@ -329,9 +356,10 @@ export default function CustomerDetail() {
 
   const handleSavePayment = async (e) => {
     e.preventDefault();
-    
+
     const amount = parseFloat(paymentAmount.toString().replace(/,/g, ''));
 
+    setPaymentSubmitting(true);
     try {
       const res = await fetch(`/api/customers/${id}/payment/${editingPayment._id}`, {
         method: 'PUT',
@@ -349,6 +377,8 @@ export default function CustomerDetail() {
     } catch (error) {
       console.error('Error updating payment:', error);
       toast('Error updating payment', 'error');
+    } finally {
+      setPaymentSubmitting(false);
     }
   };
 
@@ -417,7 +447,7 @@ export default function CustomerDetail() {
     // Check for error-level validation warnings
     const hasErrors = Object.values(returnValidationWarnings).some(warning => warning.type === 'error');
     if (hasErrors) {
-      alert('Please fix validation errors before submitting. Customers can only return products they have purchased.');
+      toast('Please fix validation errors before submitting. Customers can only return products they have purchased.', 'error');
       return;
     }
 
@@ -431,7 +461,7 @@ export default function CustomerDetail() {
       }));
 
     if (validProducts.length === 0) {
-      alert('Please add at least one valid product');
+      toast('Please add at least one valid product', 'warning');
       return;
     }
 
@@ -439,15 +469,14 @@ export default function CustomerDetail() {
     const productsWithoutId = validProducts.filter(p => !p.productId);
     if (productsWithoutId.length > 0) {
       const names = productsWithoutId.map(p => p.name).join(', ');
-      const proceed = confirm(
-        `The following products were not selected from the inventory dropdown: ${names}\n\n` +
-        'Their stock will NOT be updated in the warehouse inventory.\n\n' +
-        'Please go back and select products from the dropdown to ensure inventory is updated.\n\n' +
-        'Do you want to continue anyway?'
+      const proceed = await confirm(
+        `The following products were not selected from the inventory dropdown: ${names}. Their stock will NOT be updated in the warehouse inventory. Do you want to continue anyway?`,
+        'Inventory Warning'
       );
       if (!proceed) return;
     }
 
+    setReturnSubmitting(true);
     try {
       const res = await fetch(`/api/customers/${id}/return`, {
         method: 'POST',
@@ -469,13 +498,15 @@ export default function CustomerDetail() {
         setReturnValidationWarnings({});
         setShowReturnProductDropdown(false);
         fetchCustomerDetails();
-        alert('Return created successfully! Customer debt reduced and inventory updated.');
+        toast('Return created successfully! Customer debt reduced and inventory updated.', 'success');
       } else {
-        alert(data.message || 'Error creating return');
+        toast(data.message || 'Error creating return', 'error');
       }
     } catch (error) {
       console.error('Error creating return:', error);
-      alert('Error creating return');
+      toast('Error creating return', 'error');
+    } finally {
+      setReturnSubmitting(false);
     }
   };
 
@@ -529,7 +560,7 @@ export default function CustomerDetail() {
     // Check for error-level validation warnings
     const hasErrors = Object.values(returnValidationWarnings).some(warning => warning.type === 'error');
     if (hasErrors) {
-      alert('Please fix validation errors before submitting. Customers can only return products they have purchased.');
+      toast('Please fix validation errors before submitting. Customers can only return products they have purchased.', 'error');
       return;
     }
 
@@ -543,7 +574,7 @@ export default function CustomerDetail() {
       }));
 
     if (validProducts.length === 0) {
-      alert('Please add at least one valid product');
+      toast('Please add at least one valid product', 'warning');
       return;
     }
 
@@ -551,15 +582,14 @@ export default function CustomerDetail() {
     const productsWithoutId = validProducts.filter(p => !p.productId);
     if (productsWithoutId.length > 0) {
       const names = productsWithoutId.map(p => p.name).join(', ');
-      const proceed = confirm(
-        `The following products were not selected from the inventory dropdown: ${names}\n\n` +
-        'Their stock will NOT be updated in the warehouse inventory.\n\n' +
-        'Please go back and select products from the dropdown to ensure inventory is updated.\n\n' +
-        'Do you want to continue anyway?'
+      const proceed = await confirm(
+        `The following products were not selected from the inventory dropdown: ${names}. Their stock will NOT be updated in the warehouse inventory. Do you want to continue anyway?`,
+        'Inventory Warning'
       );
       if (!proceed) return;
     }
 
+    setReturnSubmitting(true);
     try {
       const res = await fetch(`/api/customers/${id}/return/${editingReturn._id}`, {
         method: 'PUT',
@@ -574,16 +604,22 @@ export default function CustomerDetail() {
         setReturnValidationWarnings({});
         setShowReturnProductDropdown(false);
         fetchCustomerDetails();
-        alert('Return updated successfully! Inventory has been adjusted.');
+        toast('Return updated successfully! Inventory has been adjusted.', 'success');
       }
     } catch (error) {
       console.error('Error updating return:', error);
-      alert('Error updating return');
+      toast('Error updating return', 'error');
+    } finally {
+      setReturnSubmitting(false);
     }
   };
 
   const handleDeleteReturn = async (returnId) => {
-    if (confirm('Are you sure you want to delete this return? This will increase the customer debt and reverse inventory changes.')) {
+    const confirmed = await confirm(
+      'Are you sure you want to delete this return? This will increase the customer debt and reverse inventory changes.',
+      'Delete Return'
+    );
+    if (confirmed) {
       try {
         const res = await fetch(`/api/customers/${id}/return/${returnId}`, {
           method: 'DELETE'
@@ -591,11 +627,11 @@ export default function CustomerDetail() {
 
         if (res.ok) {
           fetchCustomerDetails();
-          alert('Return deleted successfully! Inventory has been adjusted.');
+          toast('Return deleted successfully! Inventory has been adjusted.', 'success');
         }
       } catch (error) {
         console.error('Error deleting return:', error);
-        alert('Error deleting return');
+        toast('Error deleting return', 'error');
       }
     }
   };
@@ -670,6 +706,7 @@ export default function CustomerDetail() {
       }
     }
 
+    setOrderSubmitting(true);
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -695,6 +732,8 @@ export default function CustomerDetail() {
     } catch (error) {
       console.error('Error creating order:', error);
       toast('Error creating order', 'error');
+    } finally {
+      setOrderSubmitting(false);
     }
   };
 
@@ -703,6 +742,7 @@ export default function CustomerDetail() {
 
     const amount = parseFloat(paymentAmount.toString().replace(/,/g, ''));
 
+    setPaymentSubmitting(true);
     try {
       const res = await fetch(`/api/customers/${id}/payment`, {
         method: 'POST',
@@ -729,6 +769,8 @@ export default function CustomerDetail() {
     } catch (error) {
       console.error('Error making payment:', error);
       toast('Error processing payment', 'error');
+    } finally {
+      setPaymentSubmitting(false);
     }
   };
 
@@ -851,13 +893,11 @@ export default function CustomerDetail() {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       </Head>
       <Layout>
-        <button
-          onClick={() => router.push('/customers')}
-          className="flex items-center text-bge-green hover:text-bge-light-green mb-4 sm:mb-6 p-2 -ml-2 rounded-lg hover:bg-green-50 transition-colors min-h-[44px]"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          <span className="font-medium">Back to Customers</span>
-        </button>
+        <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+          <a href="/customers" className="hover:text-bge-green transition-colors">Customers</a>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-gray-900 font-medium">{customer?.name || 'Customer Detail'}</span>
+        </nav>
         <div className="card mb-4 sm:mb-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div className="flex-1 min-w-0">
@@ -989,9 +1029,10 @@ export default function CustomerDetail() {
           </button>
         </div>
         <div className="card mb-4 sm:mb-6">
-          <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
+          <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center border-l-4 border-bge-green pl-3">
             <Package className="w-5 h-5 mr-2 text-bge-green" />
-            Orders ({orders.length})
+            Orders
+            <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-bge-green text-white">{orders.length}</span>
           </h3>
           {orders.length > 0 ? (
             <div className="space-y-3">
@@ -1064,9 +1105,10 @@ export default function CustomerDetail() {
 
         {returns.length > 0 && (
           <div className="card mb-4 sm:mb-6">
-            <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
+            <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center border-l-4 border-bge-green pl-3">
               <RotateCcw className="w-5 h-5 mr-2 text-bge-green" />
-              Returns ({returns.length})
+              Returns
+              <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-500 text-white">{returns.length}</span>
             </h3>
             <div className="space-y-3">
               {returns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((returnItem) => (
@@ -1134,9 +1176,10 @@ export default function CustomerDetail() {
 
         {customer.payments && customer.payments.length > 0 && (
           <div className="card">
-            <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
+            <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center border-l-4 border-bge-green pl-3">
               <CreditCard className="w-5 h-5 mr-2 text-bge-green" />
-              Payment History ({customer.payments.length})
+              Payment History
+              <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-600 text-white">{customer.payments.length}</span>
             </h3>
             <div className="space-y-3">
               {customer.payments.sort((a, b) => new Date(b.date) - new Date(a.date)).map((payment, idx) => (
@@ -1181,8 +1224,8 @@ export default function CustomerDetail() {
           </div>
         )}
         {showOrderModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => setShowOrderModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
                 <h3 className="text-lg sm:text-xl font-semibold">Create New Order</h3>
                 <button
@@ -1338,8 +1381,8 @@ export default function CustomerDetail() {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary w-full sm:w-auto min-h-[48px]">
-                    Create Order
+                  <button type="submit" disabled={orderSubmitting} className="btn-primary w-full sm:w-auto min-h-[48px] flex items-center justify-center gap-2">
+                    {orderSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" />Creating...</> : 'Create Order'}
                   </button>
                 </div>
               </form>
@@ -1347,8 +1390,8 @@ export default function CustomerDetail() {
           </div>
         )}
         {showEditCustomerModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => setShowEditCustomerModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="p-4 sm:p-6 border-b border-gray-200 flex justify-between items-center">
                 <h3 className="text-lg sm:text-xl font-semibold">Edit Customer</h3>
                 <button
@@ -1422,8 +1465,8 @@ export default function CustomerDetail() {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary w-full sm:w-auto">
-                    Save Changes
+                  <button type="submit" disabled={customerSubmitting} className="btn-primary w-full sm:w-auto flex items-center justify-center gap-2">
+                    {customerSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : 'Save Changes'}
                   </button>
                 </div>
               </form>
@@ -1431,8 +1474,8 @@ export default function CustomerDetail() {
           </div>
         )}
         {showEditOrderModal && editingOrder && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => setShowEditOrderModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
                 <h3 className="text-lg sm:text-xl font-semibold">Edit Order #{editingOrder.orderNumber}</h3>
                 <button
@@ -1536,8 +1579,8 @@ export default function CustomerDetail() {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary w-full sm:w-auto min-h-[48px]">
-                    Save Changes
+                  <button type="submit" disabled={orderSubmitting} className="btn-primary w-full sm:w-auto min-h-[48px] flex items-center justify-center gap-2">
+                    {orderSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : 'Save Changes'}
                   </button>
                 </div>
               </form>
@@ -1545,8 +1588,8 @@ export default function CustomerDetail() {
           </div>
         )}
         {showPaymentModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowPaymentModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
                 <h3 className="text-lg sm:text-xl font-semibold">Record Payment</h3>
                 <button
@@ -1611,8 +1654,8 @@ export default function CustomerDetail() {
                     >
                       Cancel
                     </button>
-                    <button type="submit" className="btn-primary w-full sm:w-auto min-h-[48px]">
-                      Record Payment
+                    <button type="submit" disabled={paymentSubmitting} className="btn-primary w-full sm:w-auto min-h-[48px] flex items-center justify-center gap-2">
+                      {paymentSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" />Recording...</> : 'Record Payment'}
                     </button>
                   </div>
                 </form>
@@ -1621,8 +1664,8 @@ export default function CustomerDetail() {
           </div>
         )}
         {showEditPaymentModal && editingPayment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowEditPaymentModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
                 <h3 className="text-lg sm:text-xl font-semibold">Edit Payment</h3>
                 <button
@@ -1677,8 +1720,8 @@ export default function CustomerDetail() {
                     >
                       Cancel
                     </button>
-                    <button type="submit" className="btn-primary w-full sm:w-auto min-h-[48px]">
-                      Save Changes
+                    <button type="submit" disabled={paymentSubmitting} className="btn-primary w-full sm:w-auto min-h-[48px] flex items-center justify-center gap-2">
+                      {paymentSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : 'Save Changes'}
                     </button>
                   </div>
                 </form>
@@ -1709,8 +1752,8 @@ export default function CustomerDetail() {
           const paymentTotal = filteredPayments.reduce((s, p) => s + p.amount, 0);
 
           return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowStatementModal(false)}>
+              <div className="bg-white rounded-lg max-w-md w-full shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                   <div className="flex items-center gap-2">
                     <Filter className="w-5 h-5 text-bge-green" />
@@ -1879,8 +1922,8 @@ export default function CustomerDetail() {
         })()}
 
         {showReturnModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => setShowReturnModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
                 <h3 className="text-lg sm:text-xl font-semibold">Add Product Return</h3>
                 <button
@@ -2075,8 +2118,8 @@ export default function CustomerDetail() {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto min-h-[48px]">
-                    Add Return
+                  <button type="submit" disabled={returnSubmitting} className="btn-primary bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto min-h-[48px] flex items-center justify-center gap-2">
+                    {returnSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" />Adding...</> : 'Add Return'}
                   </button>
                 </div>
               </form>
@@ -2085,8 +2128,8 @@ export default function CustomerDetail() {
         )}
 
         {showEditReturnModal && editingReturn && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => setShowEditReturnModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
                 <h3 className="text-lg sm:text-xl font-semibold">Edit Return #{editingReturn.returnNumber}</h3>
                 <button
@@ -2269,8 +2312,8 @@ export default function CustomerDetail() {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto min-h-[48px]">
-                    Save Changes
+                  <button type="submit" disabled={returnSubmitting} className="btn-primary bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto min-h-[48px] flex items-center justify-center gap-2">
+                    {returnSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : 'Save Changes'}
                   </button>
                 </div>
               </form>

@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Users, ShoppingCart, BarChart3, LogOut, Menu, X, Warehouse, Receipt } from 'lucide-react';
+import { Users, ShoppingCart, BarChart3, LogOut, Menu, X, Warehouse, Receipt, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Layout({ children, title }) {
@@ -23,92 +23,101 @@ export default function Layout({ children, title }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-bge-green">BGE</h1>
-              <span className="ml-3 text-gray-600 hidden sm:block">Credit Management</span>
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-bge-green flex items-center justify-center">
+                <span className="text-white font-bold text-sm">B</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900 leading-none">BGE</h1>
+                <span className="text-xs text-gray-500 hidden sm:block leading-none">Credit Management</span>
+              </div>
             </div>
 
-            <nav className="hidden md:flex space-x-4">
+            <nav className="hidden md:flex items-center gap-1">
               {navigation.map((item) => {
                 const Icon = item.icon;
-                const isActive = router.pathname === item.href;
+                const isActive = router.pathname === item.href || router.pathname.startsWith(item.href + '/');
                 return (
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-bge-green text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-bge-green text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                     }`}
                   >
-                    <Icon className="w-4 h-4 mr-2" />
+                    <Icon className="w-4 h-4" />
                     {item.name}
                   </Link>
                 );
               })}
             </nav>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={handleLogout}
-                className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+                title="Logout"
+                className="hidden md:flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
               </button>
 
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden text-gray-700"
+                className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Toggle menu"
               >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200">
-            <nav className="px-4 py-2 space-y-1">
+          <div className="md:hidden border-t border-gray-100 bg-white shadow-lg">
+            <nav className="px-4 py-3 space-y-1">
               {navigation.map((item) => {
                 const Icon = item.icon;
-                const isActive = router.pathname === item.href;
+                const isActive = router.pathname === item.href || router.pathname.startsWith(item.href + '/');
                 return (
                   <Link
                     key={item.name}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-bge-green text-white'
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
                   >
-                    <Icon className="w-4 h-4 mr-2" />
+                    <Icon className="w-5 h-5" />
                     {item.name}
                   </Link>
                 );
               })}
-              <button
-                onClick={handleLogout}
-                className="flex items-center w-full px-3 py-2 text-gray-700 hover:text-red-600 transition-colors"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </button>
+              <div className="pt-2 border-t border-gray-100">
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-3 w-full px-3 py-3 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                  Logout
+                </button>
+              </div>
             </nav>
           </div>
         )}
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {title && (
           <div className="mb-6">
-            <h2 className="text-3xl font-bold text-gray-900">{title}</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">{title}</h2>
           </div>
         )}
         {children}
