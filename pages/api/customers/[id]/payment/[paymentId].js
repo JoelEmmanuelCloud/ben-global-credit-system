@@ -1,6 +1,7 @@
 import dbConnect from '../../../../../lib/mongodb';
 import Customer from '../../../../../models/Customer';
 import Order from '../../../../../models/Order';
+import Return from '../../../../../models/Return';
 
 export default async function handler(req, res) {
   const { id, paymentId } = req.query;
@@ -24,10 +25,12 @@ export default async function handler(req, res) {
       customer.payments.splice(paymentIndex, 1);
 
       const allOrders = await Order.find({ customerId: id });
+      const allReturns = await Return.find({ customerId: id });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+      const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
       const totalPaid = customer.payments.reduce((sum, p) => sum + p.amount, 0);
 
-      const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders);
+      const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
 
       if (netBalance >= 0) {
         customer.wallet = netBalance;
@@ -68,10 +71,12 @@ export default async function handler(req, res) {
       payment.note = note || '';
 
       const allOrders = await Order.find({ customerId: id });
+      const allReturns = await Return.find({ customerId: id });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+      const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
       const totalPaid = customer.payments.reduce((sum, p) => sum + p.amount, 0);
 
-      const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders);
+      const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
 
       if (netBalance >= 0) {
         customer.wallet = netBalance;
