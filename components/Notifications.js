@@ -1,13 +1,10 @@
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X, Trash2 } from 'lucide-react';
 
-// ─── Toast Context ────────────────────────────────────────────────────────────
 const ToastContext = createContext(null);
 
-// ─── Confirm Context ──────────────────────────────────────────────────────────
 const ConfirmContext = createContext(null);
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
 export function NotificationProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, message: '', title: '' });
@@ -68,7 +65,6 @@ export function useConfirm() {
   return useContext(ConfirmContext);
 }
 
-// ─── Toast Container ──────────────────────────────────────────────────────────
 const toastStyles = {
   success: {
     wrapper: 'bg-white border-l-4 border-green-500',
@@ -140,7 +136,6 @@ function ToastContainer({ toasts, onRemove }) {
   );
 }
 
-// ─── Confirm Modal ────────────────────────────────────────────────────────────
 function ConfirmModal({ title, message, onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9998]">

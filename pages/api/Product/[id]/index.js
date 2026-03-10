@@ -1,4 +1,3 @@
-// pages/api/Product/[id]/index.js
 import dbConnect from '../../../../lib/mongodb';
 import Product from '../../../../models/Product';
 import Order from '../../../../models/Order';
@@ -26,7 +25,6 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: 'Product not found' });
       }
 
-      // Check if name is being changed and if it already exists
       if (name && name !== product.name) {
         const existingProduct = await Product.findOne({ 
           name: { $regex: new RegExp(`^${name}$`, 'i') },
@@ -41,7 +39,6 @@ export default async function handler(req, res) {
         }
       }
 
-      // Update fields
       if (name) product.name = name;
       if (unit) product.unit = unit;
       if (unitPrice !== undefined) product.unitPrice = unitPrice;
@@ -58,7 +55,6 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'DELETE') {
     try {
-      // Check if product is used in any orders
       const ordersWithProduct = await Order.findOne({
         'products.name': { $regex: new RegExp('^' + id + '$', 'i') }
       });

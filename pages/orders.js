@@ -1,4 +1,3 @@
-// pages/orders.js
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Download, Filter, ChevronRight, Calendar, User, CreditCard } from 'lucide-react';
@@ -65,7 +64,6 @@ export default function Orders() {
   const handleDownloadReceipt = async (order, e) => {
     e.stopPropagation();
     
-    // Fetch customer details and all their orders for the statement
     try {
       const res = await fetch(`/api/customers/${order.customerId._id}`);
       const data = await res.json();
@@ -110,7 +108,6 @@ export default function Orders() {
         <title>Orders - BGE Credit Management</title>
       </Head>
       <Layout title="Orders">
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -137,7 +134,6 @@ export default function Orders() {
           </div>
         </div>
 
-        {/* Loading State */}
         {loading ? (
           <div className="card">
             <div className="text-center py-12 text-gray-600">
@@ -146,7 +142,6 @@ export default function Orders() {
           </div>
         ) : filteredOrders.length > 0 ? (
           <>
-            {/* Desktop Table View - Hidden on Mobile */}
             <div className="hidden lg:block card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -233,7 +228,6 @@ export default function Orders() {
               </div>
             </div>
 
-            {/* Mobile & Tablet Card View - Hidden on Desktop */}
             <div className="lg:hidden space-y-3">
               {filteredOrders.map((order) => {
                 const customerStatus = getCustomerStatus(order.customerId);
@@ -243,7 +237,6 @@ export default function Orders() {
                     onClick={() => router.push(`/customers/${order.customerId._id}`)}
                     className="card hover:shadow-md transition-shadow cursor-pointer active:bg-gray-50"
                   >
-                    {/* Header Section */}
                     <div className="flex items-start justify-between mb-3 pb-3 border-b border-gray-100">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -266,9 +259,7 @@ export default function Orders() {
                       </span>
                     </div>
 
-                    {/* Details Grid */}
                     <div className="grid grid-cols-2 gap-3 mb-3">
-                      {/* Date */}
                       <div>
                         <div className="flex items-center text-xs text-gray-500 mb-1">
                           <Calendar className="w-3.5 h-3.5 mr-1" />
@@ -283,7 +274,6 @@ export default function Orders() {
                         </div>
                       </div>
 
-                      {/* Order Total */}
                       <div className="text-right">
                         <div className="text-xs text-gray-500 mb-1">Order Amount</div>
                         <div className="text-sm font-bold text-gray-900">
@@ -292,7 +282,6 @@ export default function Orders() {
                       </div>
                     </div>
 
-                    {/* Customer Balance */}
                     <div className="bg-gray-50 rounded-lg p-3 mb-3">
                       <div className="text-xs text-gray-500 mb-1">Customer Total Balance</div>
                       <div className={`text-lg font-bold ${order.customerId?.totalDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>
@@ -300,7 +289,6 @@ export default function Orders() {
                       </div>
                     </div>
 
-                    {/* Actions Footer */}
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                       <button
                         onClick={(e) => handleDownloadReceipt(order, e)}
@@ -316,7 +304,6 @@ export default function Orders() {
               })}
             </div>
 
-            {/* Results Summary */}
             <div className="mt-4 text-center text-sm text-gray-500">
               Showing {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'}
               {statusFilter !== 'all' && ` with ${statusFilter} status`}

@@ -1,4 +1,3 @@
-// pages/api/orders/[id].js
 import dbConnect from '../../../lib/mongodb';
 import Order from '../../../models/Order';
 import Customer from '../../../models/Customer';
@@ -27,14 +26,12 @@ export default async function handler(req, res) {
       const customerId = order.customerId;
       await Order.findByIdAndDelete(id);
 
-      // Recalculate customer's total debt and wallet after deletion
       const customer = await Customer.findById(customerId);
       if (customer) {
         const allOrders = await Order.find({ customerId });
         const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
         const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
 
-        // Calculate net balance: if positive, it's prepaid (wallet); if negative, it's debt
         const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders);
 
         if (netBalance >= 0) {

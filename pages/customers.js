@@ -1,4 +1,3 @@
-//pages/customers.js
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Plus, Search, Trash2, Phone, Mail, MapPin, ChevronRight } from 'lucide-react';
@@ -96,7 +95,6 @@ export default function Customers() {
         <title>Customers - BGE Credit Management</title>
       </Head>
       <Layout title="Customers">
-        {/* Header Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-6">
           <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -117,14 +115,12 @@ export default function Customers() {
           </button>
         </div>
 
-        {/* Loading State */}
         {loading ? (
           <div className="card">
             <div className="text-center py-12 text-gray-600">Loading...</div>
           </div>
         ) : filteredCustomers.length > 0 ? (
           <>
-            {/* Desktop Table View - Hidden on Mobile */}
             <div className="hidden md:block card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -184,7 +180,6 @@ export default function Customers() {
               </div>
             </div>
 
-            {/* Mobile Card View - Hidden on Desktop */}
             <div className="md:hidden space-y-3">
               {filteredCustomers.map((customer) => (
                 <div
@@ -259,7 +254,6 @@ export default function Customers() {
           </div>
         )}
 
-        {/* Add Customer Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full my-8">

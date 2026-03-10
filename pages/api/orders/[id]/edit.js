@@ -1,4 +1,3 @@
-// api/orders/[id]/edit.js
 import dbConnect from '../../../../lib/mongodb';
 import Order from '../../../../models/Order';
 import Customer from '../../../../models/Customer';
@@ -11,11 +10,10 @@ export default async function handler(req, res) {
     try {
       const { products } = req.body;
 
-      // Validate products
       if (!products || products.length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'At least one product is required' 
+        return res.status(400).json({
+          success: false,
+          message: 'At least one product is required'
         });
       }
 
@@ -24,7 +22,6 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: 'Order not found' });
       }
 
-      // Calculate new total
       const processedProducts = products.map(product => ({
         name: product.name,
         quantity: product.quantity,
@@ -37,21 +34,17 @@ export default async function handler(req, res) {
         0
       );
 
-      // Get customer's wallet balance before editing order
       const customer = await Customer.findById(order.customerId);
       const walletBeforeEdit = customer.wallet || 0;
 
-      // Update order
       order.products = processedProducts;
       order.totalAmount = newTotalAmount;
       await order.save();
 
-      // Recalculate customer's total debt and wallet
       const allOrders = await Order.find({ customerId: order.customerId });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
 
-      // Calculate net balance: if positive, it's prepaid (wallet); if negative, it's debt
       const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders);
 
       if (netBalance >= 0) {
@@ -62,11 +55,9 @@ export default async function handler(req, res) {
         customer.totalDebt = Math.abs(netBalance);
       }
 
-      // Calculate how much wallet was used for this order
       const walletAfterEdit = customer.wallet || 0;
       const walletUsedForOrder = Math.max(0, walletBeforeEdit - walletAfterEdit);
 
-      // Update the order with wallet used amount
       order.walletUsed = walletUsedForOrder;
       await order.save();
 

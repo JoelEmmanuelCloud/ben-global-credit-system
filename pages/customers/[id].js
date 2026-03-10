@@ -1,4 +1,3 @@
-//pages/customers/[id].js
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
@@ -16,13 +15,11 @@ export default function CustomerDetail() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Product inventory states
   const [allProducts, setAllProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
 
-  // Modal states
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showEditCustomerModal, setShowEditCustomerModal] = useState(false);
@@ -30,7 +27,6 @@ export default function CustomerDetail() {
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
   const [showStatementModal, setShowStatementModal] = useState(false);
 
-  // Statement filter state
   const now = new Date();
   const [statementFilter, setStatementFilter] = useState({
     type: 'all',
@@ -41,14 +37,12 @@ export default function CustomerDetail() {
     endDate: '',
   });
   
-  // Form states
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
   const [products, setProducts] = useState([
     { name: '', quantity: '', unitPrice: '', productId: null, availableStock: null, unit: '' }
   ]);
   
-  // Edit states
   const [editingCustomer, setEditingCustomer] = useState({});
   const [editingOrder, setEditingOrder] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
@@ -87,7 +81,6 @@ export default function CustomerDetail() {
     }
   };
 
-  // Product search and selection
   const handleProductSearch = (searchValue, productIndex) => {
     setProductSearchTerm(searchValue);
 
@@ -102,7 +95,6 @@ export default function CustomerDetail() {
       setShowProductDropdown(false);
     }
 
-    // Update the product name
     const newProducts = [...products];
     newProducts[productIndex].name = searchValue;
     setProducts(newProducts);
@@ -123,7 +115,6 @@ export default function CustomerDetail() {
     setProductSearchTerm('');
   };
 
-  // Customer edit/delete functions
   const handleEditCustomer = () => {
     setEditingCustomer({
       name: customer.name,
@@ -155,7 +146,6 @@ export default function CustomerDetail() {
     }
   };
 
-  // Order edit/delete functions
   const handleEditOrder = (order) => {
     setEditingOrder(order);
     setProducts(order.products.map(p => ({
@@ -223,7 +213,6 @@ export default function CustomerDetail() {
     }
   };
 
-  // Payment edit/delete functions
   const handleEditPayment = (payment) => {
     setEditingPayment(payment);
     setPaymentAmount(payment.amount.toString());
@@ -296,7 +285,6 @@ export default function CustomerDetail() {
     } else if (field === 'quantity') {
       newProducts[index][field] = value;
 
-      // Check stock availability
       if (newProducts[index].availableStock != null) {
         const requestedQty = parseFloat(value) || 0;
         if (requestedQty > newProducts[index].availableStock) {
@@ -341,7 +329,6 @@ export default function CustomerDetail() {
       return;
     }
 
-    // Check stock for inventory products
     for (const product of products.filter(p => p.productId)) {
       const requestedQty = parseFloat(product.quantity) || 0;
       if (requestedQty > product.availableStock) {
@@ -527,7 +514,6 @@ export default function CustomerDetail() {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       </Head>
       <Layout>
-        {/* Back Button */}
         <button
           onClick={() => router.push('/customers')}
           className="flex items-center text-bge-green hover:text-bge-light-green mb-4 sm:mb-6 p-2 -ml-2 rounded-lg hover:bg-green-50 transition-colors min-h-[44px]"
@@ -535,8 +521,6 @@ export default function CustomerDetail() {
           <ArrowLeft className="w-5 h-5 mr-2" />
           <span className="font-medium">Back to Customers</span>
         </button>
-
-        {/* Customer Info Card */}
         <div className="card mb-4 sm:mb-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div className="flex-1 min-w-0">
@@ -562,8 +546,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         </div>
-
-        {/* Financial Summary Cards */}
         <div className={`grid ${hasOldBalance ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'} gap-3 sm:gap-4 mb-4 sm:mb-6`}>
           {hasOldBalance && (
             <div className="card bg-orange-50 border-l-4 border-orange-500">
@@ -627,8 +609,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         </div>
-
-        {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4 sm:mb-6">
           <button
             onClick={() => setShowOrderModal(true)}
@@ -652,8 +632,6 @@ export default function CustomerDetail() {
             Download Statement
           </button>
         </div>
-
-        {/* Orders List */}
         <div className="card mb-4 sm:mb-6">
           <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
             <Package className="w-5 h-5 mr-2 text-bge-green" />
@@ -663,7 +641,6 @@ export default function CustomerDetail() {
             <div className="space-y-3">
               {orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((order) => (
                 <div key={order._id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow bg-gray-50">
-                  {/* Order Header */}
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900 text-sm sm:text-base">Order #{order.orderNumber}</p>
@@ -698,8 +675,6 @@ export default function CustomerDetail() {
                       </button>
                     </div>
                   </div>
-
-                  {/* Products List */}
                   <div className="bg-white rounded p-2 sm:p-3">
                     <p className="text-xs font-semibold text-gray-700 mb-2">Products:</p>
                     <div className="space-y-1">
@@ -729,8 +704,6 @@ export default function CustomerDetail() {
             <p className="text-center text-gray-600 py-8 text-sm sm:text-base">No orders yet</p>
           )}
         </div>
-
-        {/* Payment History */}
         {customer.payments && customer.payments.length > 0 && (
           <div className="card">
             <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
@@ -779,8 +752,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* MODALS - Create Order Modal */}
         {showOrderModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -802,7 +773,6 @@ export default function CustomerDetail() {
                   {products.map((product, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50">
                       <div className="space-y-3">
-                        {/* Product Name with Search */}
                         <div className="relative">
                           <label className="label text-sm">
                             Product Name *
@@ -826,8 +796,6 @@ export default function CustomerDetail() {
                             />
                             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                           </div>
-
-                          {/* Product Dropdown */}
                           {showProductDropdown && filteredProducts.length > 0 && (
                             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                               {filteredProducts.map((prod) => (
@@ -950,8 +918,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* Edit Customer Modal */}
         {showEditCustomerModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
@@ -1036,8 +1002,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* Edit Order Modal - Similar structure to create */}
         {showEditOrderModal && editingOrder && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1152,8 +1116,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* Make Payment Modal */}
         {showPaymentModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -1230,8 +1192,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* Edit Payment Modal */}
         {showEditPaymentModal && editingPayment && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -1298,8 +1258,6 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-
-        {/* ── Statement Filter Modal ── */}
         {showStatementModal && (() => {
           const months = [
             'January', 'February', 'March', 'April', 'May', 'June',
@@ -1325,7 +1283,6 @@ export default function CustomerDetail() {
           return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
-                {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                   <div className="flex items-center gap-2">
                     <Filter className="w-5 h-5 text-bge-green" />
@@ -1340,7 +1297,6 @@ export default function CustomerDetail() {
                 </div>
 
                 <div className="p-6 space-y-5">
-                  {/* Filter type pills */}
                   <div>
                     <label className="label mb-2">Select Period</label>
                     <div className="flex flex-wrap gap-2">
@@ -1359,8 +1315,6 @@ export default function CustomerDetail() {
                       ))}
                     </div>
                   </div>
-
-                  {/* Month + Year selectors */}
                   {statementFilter.type === 'month' && (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -1389,8 +1343,6 @@ export default function CustomerDetail() {
                       </div>
                     </div>
                   )}
-
-                  {/* Year only */}
                   {statementFilter.type === 'year' && (
                     <div>
                       <label className="label">Year</label>
@@ -1405,8 +1357,6 @@ export default function CustomerDetail() {
                       </select>
                     </div>
                   )}
-
-                  {/* Week — pick any date in the desired week */}
                   {statementFilter.type === 'week' && (
                     <div>
                       <label className="label">Pick any date in the week</label>
@@ -1432,8 +1382,6 @@ export default function CustomerDetail() {
                       })()}
                     </div>
                   )}
-
-                  {/* Custom date range */}
                   {statementFilter.type === 'custom' && (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -1456,8 +1404,6 @@ export default function CustomerDetail() {
                       </div>
                     </div>
                   )}
-
-                  {/* Live preview */}
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
                     <p className="font-semibold text-gray-700 mb-2">Preview</p>
                     <div className="space-y-1 text-gray-600">
@@ -1483,8 +1429,6 @@ export default function CustomerDetail() {
                     )}
                   </div>
                 </div>
-
-                {/* Footer */}
                 <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-200">
                   <button
                     onClick={() => setShowStatementModal(false)}

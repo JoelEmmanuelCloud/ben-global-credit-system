@@ -1,4 +1,3 @@
-// pages/api/Product/[id]/purchases.js
 import dbConnect from '../../../../lib/mongodb';
 import Product from '../../../../models/Product';
 import Order from '../../../../models/Order';
@@ -14,15 +13,12 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: 'Product not found' });
       }
 
-      // Escape regex special characters in product name
       const escapedName = product.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-      // Find all orders containing this product by name (case-insensitive)
       const orders = await Order.find({
         'products.name': { $regex: new RegExp(`^${escapedName}$`, 'i') }
       }).populate('customerId', 'name phone').sort({ createdAt: -1 });
 
-      // Extract matching product lines from each order
       const purchases = orders.map(order => {
         const matchingProduct = order.products.find(
           p => p.name.toLowerCase() === product.name.toLowerCase()

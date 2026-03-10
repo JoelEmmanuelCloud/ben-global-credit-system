@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const ExpenseSchema = new mongoose.Schema({
-  // Basic Information
   date: {
     type: Date,
     required: true,
@@ -23,7 +22,6 @@ const ExpenseSchema = new mongoose.Schema({
     trim: true,
   },
 
-  // Payment Tracking
   paymentMethod: {
     type: String,
     enum: ['cash', 'bank_transfer', 'cheque', 'mobile_money', 'other'],
@@ -34,7 +32,6 @@ const ExpenseSchema = new mongoose.Schema({
     trim: true,
   },
 
-  // Vendor Information
   vendorName: {
     type: String,
     trim: true,
@@ -44,7 +41,6 @@ const ExpenseSchema = new mongoose.Schema({
     trim: true,
   },
 
-  // Tax Fields
   vatAmount: {
     type: Number,
     default: 0,
@@ -63,7 +59,6 @@ const ExpenseSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Indexes for faster queries
 ExpenseSchema.index({ date: -1 });
 ExpenseSchema.index({ category: 1 });
 ExpenseSchema.index({ vendorName: 'text', description: 'text' });

@@ -1,4 +1,3 @@
-//page/warehouse.js
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Plus, Package, AlertTriangle, Edit, Trash2, X, TrendingUp, TrendingDown, History, Users } from 'lucide-react';
@@ -21,7 +20,6 @@ export default function Warehouse() {
   const [purchaseHistoryLoading, setPurchaseHistoryLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // Form states
   const [formData, setFormData] = useState({
     name: '',
     unit: 'bags',
@@ -270,7 +268,6 @@ export default function Warehouse() {
         <title>Warehouse - BGE Credit Management</title>
       </Head>
       <Layout title="Warehouse & Inventory">
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="card bg-blue-50 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
@@ -312,8 +309,6 @@ export default function Warehouse() {
             </div>
           </div>
         </div>
-
-        {/* Search and Add Button */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -333,15 +328,12 @@ export default function Warehouse() {
             Add Product
           </button>
         </div>
-
-        {/* Products List */}
         {loading ? (
           <div className="card text-center py-12">
             <div className="animate-pulse text-gray-600">Loading products...</div>
           </div>
         ) : filteredProducts.length > 0 ? (
           <>
-            {/* Desktop View */}
             <div className="hidden lg:block card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -430,8 +422,6 @@ export default function Warehouse() {
                 </table>
               </div>
             </div>
-
-            {/* Mobile View */}
             <div className="lg:hidden space-y-3">
               {filteredProducts.map((product) => {
                 const status = getStockStatus(product);
@@ -520,8 +510,6 @@ export default function Warehouse() {
             )}
           </div>
         )}
-
-        {/* Add Product Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -647,8 +635,6 @@ export default function Warehouse() {
             </div>
           </div>
         )}
-
-        {/* Edit Product Modal - Similar to Add but with edit logic */}
         {showEditModal && selectedProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -765,8 +751,6 @@ export default function Warehouse() {
             </div>
           </div>
         )}
-
-        {/* Update Stock Modal */}
         {showStockModal && selectedProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
@@ -853,8 +837,6 @@ export default function Warehouse() {
             </div>
           </div>
         )}
-
-        {/* Stock History Modal */}
         {showHistoryModal && selectedProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -945,7 +927,6 @@ export default function Warehouse() {
             </div>
           </div>
         )}
-        {/* Purchase History Modal */}
         {showPurchaseHistoryModal && selectedProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">

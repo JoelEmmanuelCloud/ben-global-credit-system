@@ -13,21 +13,18 @@ export default async function handler(req, res) {
 
     const { username, password } = req.body;
 
-    // Find user
     const user = await User.findOne({ username });
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Create JWT token
     const token = jwt.sign(
       { userId: user._id, username: user.username },
       process.env.JWT_SECRET,

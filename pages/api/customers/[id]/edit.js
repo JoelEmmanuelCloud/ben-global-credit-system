@@ -1,4 +1,3 @@
-// api/customers/[id]/edit.js
 import dbConnect from '../../../../lib/mongodb';
 import Customer from '../../../../models/Customer';
 import Order from '../../../../models/Order';
@@ -16,18 +15,15 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: 'Customer not found' });
       }
 
-      // Update customer fields
       customer.name = name;
       customer.phone = phone;
       customer.email = email || '';
       customer.address = address || '';
       
-      // Update oldBalance if provided
       if (oldBalance !== undefined) {
         customer.oldBalance = parseFloat(oldBalance) || 0;
       }
 
-      // Recalculate totalDebt only (don't modify wallet during edits)
       const allOrders = await Order.find({ customerId: id });
       const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
       const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
