@@ -35,9 +35,18 @@ export default function Dashboard() {
           <title>Dashboard - BGE Credit Management</title>
         </Head>
         <Layout title="Dashboard">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-pulse text-gray-600">Loading dashboard...</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 animate-pulse">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="card h-28 bg-gray-200 rounded-xl" />
+            ))}
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 animate-pulse">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="card h-24 bg-gray-200 rounded-xl" />
+            ))}
+          </div>
+          <div className="card animate-pulse h-80 bg-gray-200 rounded-xl mb-6" />
+          <div className="card animate-pulse h-64 bg-gray-200 rounded-xl" />
         </Layout>
       </>
     );
@@ -175,9 +184,14 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg sm:text-xl font-semibold text-gray-800">Top Debtors</h3>
-            {customers && customers.length > 0 && (
-              <span className="text-sm text-gray-500">Showing top {Math.min(10, customers.length)}</span>
-            )}
+            <div className="flex items-center gap-3">
+              {customers && customers.length > 0 && (
+                <span className="text-sm text-gray-500">Top {Math.min(10, customers.length)}</span>
+              )}
+              <a href="/customers" className="text-sm text-bge-green hover:text-bge-light-green font-medium transition-colors">
+                View all →
+              </a>
+            </div>
           </div>
           
           {customers && customers.length > 0 ? (

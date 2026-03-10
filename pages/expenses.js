@@ -22,6 +22,8 @@ export default function Expenses() {
   });
   const [categoryFilter, setCategoryFilter] = useState('all');
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     amount: '',
@@ -59,6 +61,17 @@ export default function Expenses() {
   useEffect(() => {
     applyFilters();
   }, [searchTerm, dateFilter, categoryFilter, expenses]);
+
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setShowAddModal(false);
+        setShowEditModal(false);
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, []);
 
   const fetchExpenses = async () => {
     try {
@@ -101,6 +114,7 @@ export default function Expenses() {
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const res = await fetch('/api/expenses', {
         method: 'POST',
@@ -124,11 +138,14 @@ export default function Expenses() {
     } catch (error) {
       console.error('Error adding expense:', error);
       toast('Error adding expense', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleEditExpense = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const res = await fetch(`/api/expenses/${selectedExpense._id}`, {
         method: 'PUT',
@@ -152,6 +169,8 @@ export default function Expenses() {
     } catch (error) {
       console.error('Error updating expense:', error);
       toast('Error updating expense', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -241,6 +260,16 @@ export default function Expenses() {
     };
     return colorMap[color] || colorMap.gray;
   };
+
+  const hasActiveFilters = searchTerm || categoryFilter !== 'all' || dateFilter.startDate || dateFilter.endDate;
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setCategoryFilter('all');
+    setDateFilter({ startDate: '', endDate: '' });
+  };
+
+  const filteredTotal = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
@@ -355,6 +384,28 @@ export default function Expenses() {
               Add Expense
             </button>
           </div>
+          {hasActiveFilters && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {categoryFilter !== 'all' && (
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor(categoryFilter)}`}>
+                  {getCategoryLabel(categoryFilter)}
+                  <button onClick={() => setCategoryFilter('all')} className="ml-1 hover:opacity-70">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              <span className="text-sm text-gray-500">
+                Showing {filteredExpenses.length} of {expenses.length} expenses
+              </span>
+              <button
+                onClick={clearAllFilters}
+                className="ml-auto text-sm text-red-600 hover:text-red-800 font-medium flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Clear all filters
+              </button>
+            </div>
+          )}
         </div>
         {loading ? (
           <div className="text-center py-12">
@@ -375,6 +426,12 @@ export default function Expenses() {
           </div>
         ) : (
           <>
+            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 mb-4">
+              <span className="text-sm text-gray-600 font-medium">Total Expenses</span>
+              <span className="text-base font-bold text-gray-900">
+                ₦{filteredTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -497,7 +554,10 @@ export default function Expenses() {
           </>
         )}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowAddModal(false); resetForm(); } }}
+          >
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-900">Add New Expense</h2>
@@ -680,11 +740,18 @@ export default function Expenses() {
                     type="button"
                     onClick={() => { setShowAddModal(false); resetForm(); }}
                     className="btn-secondary"
+                    disabled={isSubmitting}
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Add Expense
+                  <button type="submit" className="btn-primary flex items-center gap-2" disabled={isSubmitting}>
+                    {isSubmitting && (
+                      <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                    )}
+                    {isSubmitting ? 'Saving...' : 'Add Expense'}
                   </button>
                 </div>
               </form>
@@ -692,7 +759,10 @@ export default function Expenses() {
           </div>
         )}
         {showEditModal && selectedExpense && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowEditModal(false); resetForm(); } }}
+          >
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-900">Edit Expense</h2>
@@ -875,11 +945,18 @@ export default function Expenses() {
                     type="button"
                     onClick={() => { setShowEditModal(false); resetForm(); }}
                     className="btn-secondary"
+                    disabled={isSubmitting}
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Update Expense
+                  <button type="submit" className="btn-primary flex items-center gap-2" disabled={isSubmitting}>
+                    {isSubmitting && (
+                      <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                    )}
+                    {isSubmitting ? 'Saving...' : 'Update Expense'}
                   </button>
                 </div>
               </form>
