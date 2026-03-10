@@ -19,7 +19,7 @@ export default function PortalLayout({ children, title = 'Customer Portal' }) {
           </div>
         </header>
 
-        <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-8">
+        <main className="flex-1 max-w-3xl w-full mx-auto px-3 sm:px-5 py-4 sm:py-6">
           {children}
         </main>
 
