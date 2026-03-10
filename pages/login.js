@@ -32,15 +32,13 @@ function Spinner() {
 }
 
 export default function Login() {
-  const [mode, setMode] = useState('customer'); // 'customer' | 'staff'
+  const [mode, setMode] = useState('customer');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Customer fields
   const [name, setName]   = useState('');
   const [phone, setPhone] = useState('');
 
-  // Staff fields
   const [username, setUsername]         = useState('');
   const [password, setPassword]         = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -108,7 +106,6 @@ export default function Login() {
 
       <div className="min-h-screen flex flex-col lg:flex-row">
 
-        {/* ── MOBILE header — compact green bar, hidden on desktop ────── */}
         <div className="lg:hidden bg-gradient-to-r from-bge-green to-emerald-700 px-5 py-4 flex items-center gap-3 flex-shrink-0">
           <div className="w-9 h-9 rounded-xl bg-white bg-opacity-20 flex items-center justify-center flex-shrink-0">
             <span className="font-bold text-white">B</span>
@@ -119,10 +116,8 @@ export default function Login() {
           </div>
         </div>
 
-        {/* ── LEFT — branding & features (desktop only) ──────────────── */}
         <div className="hidden lg:flex lg:w-5/12 bg-gradient-to-br from-bge-green via-green-700 to-emerald-900 flex-col justify-between p-12 text-white">
 
-          {/* Logo */}
           <div>
             <div className="flex items-center gap-3 mb-14">
               <div className="w-10 h-10 rounded-xl bg-white bg-opacity-20 flex items-center justify-center flex-shrink-0">
@@ -134,7 +129,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Dynamic headline */}
             <h1 className="text-4xl font-bold text-white leading-tight mb-3">
               {isCustomer ? (
                 <>Your account,<br />at a glance.</>
@@ -149,7 +143,6 @@ export default function Login() {
               }
             </p>
 
-            {/* Feature list */}
             <div className="space-y-3">
               {features.map(({ icon: Icon, label, desc }) => (
                 <div key={label} className="flex items-start gap-3">
@@ -165,7 +158,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Address footer */}
           <div className="mt-10 pt-6 border-t border-white border-opacity-20">
             <p className="text-green-200 text-xs leading-relaxed">
               18 Bishop Okoye Street, Opp. Mile 3 Market,<br />Diobu, Port Harcourt
@@ -174,14 +166,12 @@ export default function Login() {
           </div>
         </div>
 
-        {/* ── RIGHT — login form ──────────────────────────────────────── */}
         <div className="flex-1 flex items-center justify-center bg-gray-50 p-5 sm:p-8 lg:p-12">
           <div className="w-full max-w-md">
 
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Welcome</h2>
             <p className="text-gray-500 text-sm mb-5">Choose how you want to sign in.</p>
 
-            {/* Toggle */}
             <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
               <button
                 type="button"
@@ -207,7 +197,6 @@ export default function Login() {
               </button>
             </div>
 
-            {/* Form card */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 lg:p-8">
               <form onSubmit={handleSubmit} className="space-y-5">
 
@@ -318,7 +307,6 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Help */}
             <p className="text-center text-xs text-gray-400 mt-5">
               Need help?{' '}
               <a href="tel:08068609964" className="text-bge-green font-medium hover:underline">

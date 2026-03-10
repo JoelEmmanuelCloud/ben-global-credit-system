@@ -8,7 +8,6 @@ import {
   ShoppingCart, RotateCcw, CreditCard, X, Calendar,
 } from 'lucide-react';
 
-// ─── Statement date-filter options (same as admin) ───────────────────────────
 const FILTER_OPTIONS = [
   { value: 'all', label: 'All Time' },
   { value: 'month', label: 'By Month' },
@@ -81,8 +80,6 @@ function filterPayments(payments, filter) {
   });
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 function StatCard({ label, value, color = 'gray', icon: Icon }) {
   const colors = {
     red:    'bg-red-50 border-red-200 text-red-700',
@@ -139,7 +136,6 @@ function OrderCard({ order }) {
 
       {open && (
         <div className="border-t border-gray-100 bg-gray-50 p-3 sm:p-4 space-y-2">
-          {/* Product rows — stacked on mobile, table-like on sm+ */}
           {order.products.map((p, i) => (
             <div key={i} className="flex items-start justify-between gap-2 text-xs py-1.5 border-b border-gray-100 last:border-0">
               <div className="flex-1 min-w-0">
@@ -152,7 +148,6 @@ function OrderCard({ order }) {
             </div>
           ))}
 
-          {/* Totals */}
           <div className="pt-1 space-y-1 text-xs">
             <div className="flex justify-between font-semibold text-gray-800">
               <span>Order Total</span>
@@ -224,7 +219,6 @@ function StatementModal({ customer, orders, payments, onClose }) {
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Period selector */}
           <div>
             <label className="label">Statement Period</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -245,7 +239,6 @@ function StatementModal({ customer, orders, payments, onClose }) {
             </div>
           </div>
 
-          {/* Dynamic date inputs */}
           {filter.type === 'month' && (
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -301,7 +294,6 @@ function StatementModal({ customer, orders, payments, onClose }) {
             </div>
           )}
 
-          {/* Preview counts */}
           <div className="bg-gray-50 rounded-xl p-4 text-sm space-y-1">
             <p className="font-medium text-gray-700 mb-2">Preview — {periodLabel}</p>
             <div className="flex justify-between text-gray-600">
@@ -340,8 +332,6 @@ function StatementModal({ customer, orders, payments, onClose }) {
     </div>
   );
 }
-
-// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function PortalCustomer() {
   const router = useRouter();
@@ -434,7 +424,6 @@ export default function PortalCustomer() {
 
   return (
     <PortalLayout title={`${customer.name}'s Account`}>
-      {/* Header card */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-6 mb-4 sm:mb-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -470,7 +459,6 @@ export default function PortalCustomer() {
           </button>
         </div>
 
-        {/* Balance status banner */}
         {customer.totalDebt > 0 ? (
           <div className="mt-3 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
@@ -496,7 +484,6 @@ export default function PortalCustomer() {
         )}
       </div>
 
-      {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3 mb-5">
         <StatCard label="Total Orders" value={fmt(orders.reduce((s, o) => s + o.totalAmount, 0))} color="blue" icon={ShoppingCart} />
         <StatCard label="Total Paid" value={fmt(totalPaid)} color="green" icon={CreditCard} />
@@ -512,7 +499,6 @@ export default function PortalCustomer() {
         <StatCard label="Total Returns" value={fmt(returns.reduce((s, r) => s + r.totalAmount, 0))} color="gray" icon={RotateCcw} />
       </div>
 
-      {/* Download statement button */}
       <button
         onClick={() => setShowStatement(true)}
         className="w-full flex items-center justify-center gap-2 bg-white border border-bge-green text-bge-green hover:bg-bge-green hover:text-white transition-all rounded-xl py-3 font-semibold text-sm mb-5"
@@ -521,7 +507,6 @@ export default function PortalCustomer() {
         Download Account Statement
       </button>
 
-      {/* Tabs */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-100">
           {tabs.map(tab => {
@@ -552,7 +537,6 @@ export default function PortalCustomer() {
         </div>
 
         <div className="p-4">
-          {/* Orders tab */}
           {activeTab === 'orders' && (
             <div className="space-y-3">
               {orders.length === 0 ? (
@@ -566,7 +550,6 @@ export default function PortalCustomer() {
             </div>
           )}
 
-          {/* Payments tab */}
           {activeTab === 'payments' && (
             <div className="space-y-2">
               {payments.length === 0 ? (
@@ -593,7 +576,6 @@ export default function PortalCustomer() {
             </div>
           )}
 
-          {/* Returns tab */}
           {activeTab === 'returns' && (
             <div className="space-y-3">
               {returns.length === 0 ? (
@@ -632,7 +614,6 @@ export default function PortalCustomer() {
         </div>
       </div>
 
-      {/* Statement modal */}
       {showStatement && (
         <StatementModal
           customer={customer}
