@@ -1,6 +1,7 @@
 import dbConnect from '../../lib/mongodb';
 import Order from '../../models/Order';
 import Customer from '../../models/Customer';
+import Return from '../../models/Return';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -30,7 +31,6 @@ export default async function handler(req, res) {
         note: note || '',
       });
 
-      const oldBalance = order.balance;
       order.amountPaid += amount;
       order.balance -= amount;
 
@@ -42,9 +42,26 @@ export default async function handler(req, res) {
 
       await order.save();
 
-      await Customer.findByIdAndUpdate(order.customerId, {
-        $inc: { totalDebt: -amount },
-      });
+      const customer = await Customer.findById(order.customerId);
+      if (customer) {
+        const allOrders = await Order.find({ customerId: customer._id });
+        const allReturns = await Return.find({ customerId: customer._id });
+        const totalOrders = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+        const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
+        const totalPaid = customer.payments ? customer.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
+
+        const netBalance = totalPaid - ((customer.oldBalance || 0) + totalOrders - totalReturns);
+
+        if (netBalance >= 0) {
+          customer.wallet = netBalance;
+          customer.totalDebt = 0;
+        } else {
+          customer.wallet = 0;
+          customer.totalDebt = Math.abs(netBalance);
+        }
+
+        await customer.save();
+      }
 
       const populatedOrder = await Order.findById(order._id).populate('customerId');
 

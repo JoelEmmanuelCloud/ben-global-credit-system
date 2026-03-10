@@ -2,6 +2,7 @@ import dbConnect from '../../../../../lib/mongodb';
 import Customer from '../../../../../models/Customer';
 import Return from '../../../../../models/Return';
 import Order from '../../../../../models/Order';
+import Product from '../../../../../models/Product';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -31,6 +32,7 @@ export default async function handler(req, res) {
         quantity: parseFloat(product.quantity),
         unitPrice: parseFloat(product.unitPrice),
         totalPrice: parseFloat(product.quantity) * parseFloat(product.unitPrice),
+        productId: product.productId || null,
       }));
 
       const totalAmount = processedProducts.reduce(
@@ -63,6 +65,70 @@ export default async function handler(req, res) {
         throw new Error('Failed to generate unique return number');
       }
 
+      const inventoryUpdates = [];
+      const inventoryFailures = [];
+
+      for (const product of processedProducts) {
+        if (product.productId) {
+          try {
+            const inventoryProduct = await Product.findById(product.productId);
+
+            if (inventoryProduct) {
+              const previousStock = inventoryProduct.currentStock;
+              const newStock = previousStock + product.quantity;
+
+              inventoryProduct.stockHistory.push({
+                type: 'addition',
+                quantity: product.quantity,
+                previousStock,
+                newStock,
+                reason: `Return ${returnNumber}`,
+              });
+
+              inventoryProduct.currentStock = newStock;
+              await inventoryProduct.save();
+
+              inventoryUpdates.push({ productId: product.productId, quantity: product.quantity, productName: inventoryProduct.name });
+            } else {
+              inventoryFailures.push(`Product "${product.name}" (ID: ${product.productId}) not found in inventory`);
+            }
+          } catch (error) {
+            inventoryFailures.push(`Failed to update inventory for "${product.name}": ${error.message}`);
+            console.error(`Error updating inventory for product ${product.productId}:`, error);
+          }
+        }
+      }
+
+      if (inventoryFailures.length > 0) {
+        for (const update of inventoryUpdates) {
+          try {
+            const inventoryProduct = await Product.findById(update.productId);
+            if (inventoryProduct) {
+              const previousStock = inventoryProduct.currentStock;
+              const newStock = Math.max(0, previousStock - update.quantity);
+
+              inventoryProduct.stockHistory.push({
+                type: 'deduction',
+                quantity: update.quantity,
+                previousStock,
+                newStock,
+                reason: `Return ${returnNumber} rolled back due to inventory error`,
+              });
+
+              inventoryProduct.currentStock = newStock;
+              await inventoryProduct.save();
+            }
+          } catch (rollbackError) {
+            console.error(`Error rolling back inventory for product ${update.productId}:`, rollbackError);
+          }
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: `Inventory update failed. Return was not created. Issues: ${inventoryFailures.join('; ')}`
+        });
+      }
+
       const returnDoc = await Return.create({
         customerId: id,
         orderId: orderId || null,
@@ -71,6 +137,21 @@ export default async function handler(req, res) {
         totalAmount,
         reason: reason || '',
       });
+
+      for (const update of inventoryUpdates) {
+        try {
+          const inventoryProduct = await Product.findById(update.productId);
+          if (inventoryProduct) {
+            const lastEntry = inventoryProduct.stockHistory[inventoryProduct.stockHistory.length - 1];
+            if (lastEntry && lastEntry.reason === `Return ${returnNumber}`) {
+              lastEntry.returnId = returnDoc._id;
+              await inventoryProduct.save();
+            }
+          }
+        } catch (error) {
+          console.error(`Error updating returnId in stock history:`, error);
+        }
+      }
 
       const allOrders = await Order.find({ customerId: id });
       const allReturns = await Return.find({ customerId: id });
