@@ -3,8 +3,11 @@ import Layout from '../components/Layout';
 import { Search, Plus, Receipt, DollarSign, FileText, Edit, Trash2, X, Download } from 'lucide-react';
 import Head from 'next/head';
 import { downloadExpenseReport } from '../lib/pdfGenerator';
+import { useToast, useConfirm } from '../components/Notifications';
 
 export default function Expenses() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [expenses, setExpenses] = useState([]);
   const [filteredExpenses, setFilteredExpenses] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -119,13 +122,13 @@ export default function Expenses() {
         setShowAddModal(false);
         resetForm();
         fetchExpenses();
-        alert('Expense added successfully!');
+        toast('Expense added successfully!', 'success');
       } else {
-        alert(data.message || 'Error adding expense');
+        toast(data.message || 'Error adding expense', 'error');
       }
     } catch (error) {
       console.error('Error adding expense:', error);
-      alert('Error adding expense');
+      toast('Error adding expense', 'error');
     }
   };
 
@@ -147,18 +150,22 @@ export default function Expenses() {
         setShowEditModal(false);
         resetForm();
         fetchExpenses();
-        alert('Expense updated successfully!');
+        toast('Expense updated successfully!', 'success');
       } else {
-        alert(data.message || 'Error updating expense');
+        toast(data.message || 'Error updating expense', 'error');
       }
     } catch (error) {
       console.error('Error updating expense:', error);
-      alert('Error updating expense');
+      toast('Error updating expense', 'error');
     }
   };
 
   const handleDeleteExpense = async (expenseId) => {
-    if (confirm('Are you sure you want to delete this expense? This action cannot be undone.')) {
+    const confirmed = await confirm(
+      'Are you sure you want to delete this expense? This action cannot be undone.',
+      'Delete Expense'
+    );
+    if (confirmed) {
       try {
         const res = await fetch(`/api/expenses/${expenseId}`, {
           method: 'DELETE',
@@ -167,13 +174,13 @@ export default function Expenses() {
         const data = await res.json();
         if (res.ok) {
           fetchExpenses();
-          alert('Expense deleted successfully!');
+          toast('Expense deleted successfully!', 'success');
         } else {
-          alert(data.message || 'Error deleting expense');
+          toast(data.message || 'Error deleting expense', 'error');
         }
       } catch (error) {
         console.error('Error deleting expense:', error);
-        alert('Error deleting expense');
+        toast('Error deleting expense', 'error');
       }
     }
   };
