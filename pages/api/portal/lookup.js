@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     const normalizedPhone = phone.replace(/\D/g, '');
 
     const customers = await Customer.find({
-      name: { $regex: new RegExp(`^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      name: { $regex: new RegExp(`^\\s*${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i') },
     }).select('_id name phone');
 
     const match = customers.find(c => c.phone.replace(/\D/g, '') === normalizedPhone);
