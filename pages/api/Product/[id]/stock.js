@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import dbConnect from '../../../../lib/mongodb';
 import Product from '../../../../models/Product';
 
@@ -6,64 +7,73 @@ export default async function handler(req, res) {
   await dbConnect();
 
   if (req.method === 'POST') {
+    const session = await mongoose.startSession();
     try {
       const { type, quantity, reason } = req.body;
 
       if (!type || !quantity) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Type and quantity are required' 
+        return res.status(400).json({
+          success: false,
+          message: 'Type and quantity are required'
         });
       }
 
       if (quantity <= 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Quantity must be greater than 0' 
+        return res.status(400).json({
+          success: false,
+          message: 'Quantity must be greater than 0'
         });
       }
 
-      const product = await Product.findById(id);
-      if (!product) {
-        return res.status(404).json({ success: false, message: 'Product not found' });
+      if (!['addition', 'deduction', 'adjustment'].includes(type)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid type. Must be: addition, deduction, or adjustment'
+        });
       }
 
-      const previousStock = product.currentStock;
-      let newStock = previousStock;
+      let updatedProduct;
 
-      if (type === 'addition') {
-        newStock = previousStock + quantity;
-      } else if (type === 'deduction') {
-        if (quantity > previousStock) {
-          return res.status(400).json({ 
-            success: false, 
-            message: `Cannot deduct ${quantity}. Only ${previousStock} in stock.` 
-          });
+      await session.withTransaction(async () => {
+        const product = await Product.findById(id).session(session);
+        if (!product) {
+          throw new Error('Product not found');
         }
-        newStock = previousStock - quantity;
-      } else if (type === 'adjustment') {
-        newStock = quantity; // Direct set
-      } else {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Invalid type. Must be: addition, deduction, or adjustment' 
-        });
-      }
 
-      product.stockHistory.push({
-        type,
-        quantity: type === 'adjustment' ? Math.abs(quantity - previousStock) : quantity,
-        previousStock,
-        newStock,
-        reason: reason || `Stock ${type}`,
+        const previousStock = product.currentStock;
+        let newStock = previousStock;
+
+        if (type === 'addition') {
+          newStock = previousStock + quantity;
+        } else if (type === 'deduction') {
+          if (quantity > previousStock) {
+            throw new Error(`Cannot deduct ${quantity}. Only ${previousStock} in stock.`);
+          }
+          newStock = previousStock - quantity;
+        } else {
+          newStock = quantity;
+        }
+
+        product.stockHistory.push({
+          type,
+          quantity: type === 'adjustment' ? Math.abs(quantity - previousStock) : quantity,
+          previousStock,
+          newStock,
+          reason: reason || `Stock ${type}`,
+        });
+
+        product.currentStock = newStock;
+        await product.save({ session });
+
+        updatedProduct = product;
       });
 
-      product.currentStock = newStock;
-      await product.save();
-
-      res.status(200).json({ success: true, product });
+      res.status(200).json({ success: true, product: updatedProduct });
     } catch (error) {
-      res.status(400).json({ success: false, error: error.message });
+      const status = error.message === 'Product not found' ? 404 : 400;
+      res.status(status).json({ success: false, message: error.message });
+    } finally {
+      await session.endSession();
     }
   } else {
     res.status(405).json({ success: false, message: 'Method not allowed' });

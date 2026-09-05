@@ -1,5 +1,6 @@
 import dbConnect from '../../../lib/mongodb';
 import Product from '../../../models/Product';
+import { escapeRegex } from '../../../lib/regexEscape';
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -31,8 +32,8 @@ export default async function handler(req, res) {
     try {
       const { name, unit, currentStock, unitPrice, lowStockThreshold, description, category } = req.body;
 
-      const existingProduct = await Product.findOne({ 
-        name: { $regex: new RegExp(`^${name}$`, 'i') } 
+      const existingProduct = await Product.findOne({
+        name: { $regex: new RegExp(`^${escapeRegex(name)}$`, 'i') }
       });
 
       if (existingProduct) {
