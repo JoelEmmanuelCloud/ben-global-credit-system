@@ -1,6 +1,7 @@
 import dbConnect from '../../../../lib/mongodb';
 import Order from '../../../../models/Order';
 import Return from '../../../../models/Return';
+import { escapeRegex } from '../../../../lib/regexEscape';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -17,16 +18,18 @@ export default async function handler(req, res) {
         });
       }
 
+      const escapedName = escapeRegex(productName);
+
       // Find all orders for this customer containing the product
       const orders = await Order.find({
         customerId: id,
-        'products.name': { $regex: new RegExp(`^${productName}$`, 'i') }
+        'products.name': { $regex: new RegExp(`^${escapedName}$`, 'i') }
       }).select('orderNumber createdAt products').sort({ createdAt: -1 });
 
       // Find all returns for this customer containing the product
       const returns = await Return.find({
         customerId: id,
-        'products.name': { $regex: new RegExp(`^${productName}$`, 'i') }
+        'products.name': { $regex: new RegExp(`^${escapedName}$`, 'i') }
       }).select('returnNumber createdAt products').sort({ createdAt: -1 });
 
       // Calculate totals

@@ -13,13 +13,20 @@ export default async function handler(req, res) {
 
     const { username, password } = req.body;
 
-    const user = await User.findOne({ username });
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password are required' });
+    }
+
+    const normalizedUsername = username.trim();
+    const normalizedPassword = password.trim();
+
+    const user = await User.findOne({ username: normalizedUsername });
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(normalizedPassword, user.password);
 
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });

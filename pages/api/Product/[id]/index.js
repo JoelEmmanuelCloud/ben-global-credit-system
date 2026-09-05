@@ -1,6 +1,7 @@
 import dbConnect from '../../../../lib/mongodb';
 import Product from '../../../../models/Product';
 import Order from '../../../../models/Order';
+import { escapeRegex } from '../../../../lib/regexEscape';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -26,8 +27,8 @@ export default async function handler(req, res) {
       }
 
       if (name && name !== product.name) {
-        const existingProduct = await Product.findOne({ 
-          name: { $regex: new RegExp(`^${name}$`, 'i') },
+        const existingProduct = await Product.findOne({
+          name: { $regex: new RegExp(`^${escapeRegex(name)}$`, 'i') },
           _id: { $ne: id }
         });
 
@@ -55,21 +56,23 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'DELETE') {
     try {
-      const ordersWithProduct = await Order.findOne({
-        'products.name': { $regex: new RegExp('^' + id + '$', 'i') }
-      });
-
-      if (ordersWithProduct) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Cannot delete product that has been used in orders. Consider marking it as inactive instead.' 
-        });
-      }
-
-      const product = await Product.findByIdAndDelete(id);
+      const product = await Product.findById(id);
       if (!product) {
         return res.status(404).json({ success: false, message: 'Product not found' });
       }
+
+      const ordersWithProduct = await Order.findOne({
+        'products.name': { $regex: new RegExp(`^${escapeRegex(product.name)}$`, 'i') }
+      });
+
+      if (ordersWithProduct) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete product that has been used in orders. Consider marking it as inactive instead.'
+        });
+      }
+
+      await Product.findByIdAndDelete(id);
 
       res.status(200).json({ success: true, message: 'Product deleted successfully' });
     } catch (error) {
