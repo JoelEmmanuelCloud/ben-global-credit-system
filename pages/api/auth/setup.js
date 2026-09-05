@@ -10,8 +10,8 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const existingUser = await User.findOne({ username: 'BenGlobal' });
-    
+    const existingUser = await User.findOne({ username: 'Treasure' });
+
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     const hashedPassword = await bcrypt.hash('08068609964', 10);
 
     const user = await User.create({
-      username: 'BenGlobal',
+      username: 'Treasure',
       password: hashedPassword,
     });
 
