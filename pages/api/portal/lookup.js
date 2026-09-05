@@ -41,17 +41,18 @@ export default async function handler(req, res) {
 
   const { name, phone } = req.body;
 
-  if (!name || !phone) {
+  const normalizedName  = typeof name  === 'string' ? name.trim().replace(/\s{2,}/g, ' ')  : '';
+  const normalizedPhone = typeof phone === 'string' ? phone.replace(/\D/g, '') : '';
+
+  if (!normalizedName || !normalizedPhone) {
     return res.status(400).json({ success: false, message: 'Name and phone number are required.' });
   }
 
   try {
     await dbConnect();
 
-    const normalizedPhone = phone.replace(/\D/g, '');
-
     const customers = await Customer.find({
-      name: { $regex: new RegExp(`^\\s*${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i') },
+      name: { $regex: new RegExp(`^\\s*${normalizedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i') },
     }).select('_id name phone');
 
     const match = customers.find(c => c.phone.replace(/\D/g, '') === normalizedPhone);

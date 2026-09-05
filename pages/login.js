@@ -50,6 +50,22 @@ export default function Login() {
     setError('');
   };
 
+  const handleNameChange = (e) => {
+    setName(e.target.value.replace(/\s{2,}/g, ' '));
+  };
+
+  const handlePhoneChange = (e) => {
+    setPhone(e.target.value.replace(/\s+/g, ''));
+  };
+
+  const handleUsernameChange = (e) => {
+    setUsername(e.target.value.replace(/\s+/g, ''));
+  };
+
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value.replace(/\s+/g, ''));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -60,7 +76,10 @@ export default function Login() {
         const res  = await fetch('/api/portal/lookup', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ name: name.trim(), phone: phone.trim() }),
+          body:    JSON.stringify({
+            name:  name.trim().replace(/\s{2,}/g, ' '),
+            phone: phone.trim(),
+          }),
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
@@ -74,7 +93,7 @@ export default function Login() {
         const res  = await fetch('/api/auth/login', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ username, password }),
+          body:    JSON.stringify({ username: username.trim(), password: password.trim() }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -96,12 +115,12 @@ export default function Login() {
   const features   = isCustomer ? customerFeatures : adminFeatures;
   const canSubmit  = isCustomer
     ? name.trim() && phone.trim()
-    : username && password;
+    : username.trim() && password.trim();
 
   return (
     <>
       <Head>
-        <title>{isCustomer ? 'Customer Portal' : 'Staff Login'} — BGE</title>
+        <title>{`${isCustomer ? 'Customer Portal' : 'Staff Login'} — BGE`}</title>
       </Head>
 
       <div className="min-h-screen flex flex-col lg:flex-row">
@@ -209,7 +228,7 @@ export default function Login() {
                         <input
                           type="text"
                           value={name}
-                          onChange={e => setName(e.target.value)}
+                          onChange={handleNameChange}
                           className="input-field pl-10"
                           placeholder="As registered on your account"
                           autoComplete="name"
@@ -225,7 +244,7 @@ export default function Login() {
                         <input
                           type="tel"
                           value={phone}
-                          onChange={e => setPhone(e.target.value)}
+                          onChange={handlePhoneChange}
                           className="input-field pl-10"
                           placeholder="e.g. 08012345678"
                           autoComplete="tel"
@@ -243,7 +262,7 @@ export default function Login() {
                         <input
                           type="text"
                           value={username}
-                          onChange={e => setUsername(e.target.value)}
+                          onChange={handleUsernameChange}
                           className="input-field pl-10"
                           placeholder="Enter your username"
                           autoComplete="username"
@@ -259,7 +278,7 @@ export default function Login() {
                         <input
                           type={showPassword ? 'text' : 'password'}
                           value={password}
-                          onChange={e => setPassword(e.target.value)}
+                          onChange={handlePasswordChange}
                           className="input-field pl-10 pr-10"
                           placeholder="Enter your password"
                           autoComplete="current-password"
@@ -268,7 +287,6 @@ export default function Login() {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          tabIndex={-1}
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                         >
